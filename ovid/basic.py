@@ -5,6 +5,9 @@ This module is not suitable for anything Python's re module can do alone.
 It's built for frameworks where nested shorthand expressions can produce
 further shorthand expressions that require functions to resolve.
 
+TODO: Allow escaping of the various delimiters and separators defined
+herein. The coming regex module should make this easier.
+
 Written for Python 3.4. Backwards compatibility is limited by re.fullmatch.
 
 '''
@@ -12,12 +15,42 @@ Written for Python 3.4. Backwards compatibility is limited by re.fullmatch.
 
 import re
 import logging
+import functools
 
 
-class OneWayProcessor():
+class Cacher(type):
+    def __new__(cls, *args, **kwargs):
+        new = super().__new__(cls, *args, **kwargs)
+        new._cache = dict()
+        return new
+
+    @classmethod
+    def cache_results(cls):
+        '''Generic memoization decorator. Ignores keyword arguments.
+
+        Results are cached in the class of the decorated method.
+
+        '''
+        def decorator(obj):
+
+            @functools.wraps(obj)
+            def memoizer(*args):
+                cache = args[0]._cache
+                key = (obj.__name__,) + args
+                if key not in cache:
+                    # print('New:', obj.__name__, 'with', args)  # Debug.
+                    cache[key] = obj(*args)
+                return cache[key]
+
+            return memoizer
+
+        return decorator
+
+
+class OneWayProcessor(metaclass=Cacher):
     '''A tool that replaces one substring pattern with function output.
 
-    This class wraps some familiar re functions in homonymous methods.
+    This class wraps some "re" module functions in homonymous methods.
 
     '''
 
@@ -25,7 +58,39 @@ class OneWayProcessor():
         self.re = self._generate_re(pattern)
         self.function = function
 
-    def _preprocess(self, matchobject):
+        # For preprocessing, find out which groups in the regex are unnamed.
+        named = set(self.re.groupindex.values())
+        unnamed = (i for i in range(1, self.re.groups + 1) if i not in named)
+        self._unnamed_group_indices = tuple(unnamed)
+
+    @classmethod
+    def _generate_re(cls, subpattern):
+        '''Trivial here. Overridden elsewhere in this module.'''
+        return re.compile(subpattern, re.UNICODE)
+
+    @classmethod
+    def variant_class(cls, name='Custom', **kwargs):
+        '''Generate a fresh subclass.
+
+        This is useful for subclassing subclasses of this class.
+        In particular, it's intended for customizing lead-in strings,
+        separator strings etc., and to easily make subclasses with
+        their own registries, none of which exist on OneWayProcessor.
+
+        '''
+        return type(name, (cls,), kwargs)
+
+    def sub(self, string, **kwargs):
+        return re.sub(self.re, self._process, string, **kwargs)
+
+    def subn(self, string, **kwargs):
+        return re.subn(self.re, self._process, string, **kwargs)
+
+    def _process(self, matchobject):
+        unnamed, named = self._unique_groups(matchobject)
+        return self.function(*unnamed, **named)
+
+    def _unique_groups(self, matchobject):
         '''Break down match objects for the processor function.
 
         With this stock version, the function passed to the constructor
@@ -49,27 +114,20 @@ class OneWayProcessor():
             return 'cooked string'
 
         '''
-        n_unnamed = matchobject.re.groups
-        named = set(matchobject.re.groupindex.values())
-        unnamed = [i for i in range(1, n_unnamed + 1) if i not in named]
-        args = ()
-        if unnamed:
-            # With 0-1 arguments group() returns a string, else a tuple.
-            args = matchobject.group(*unnamed)
-            if len(unnamed) == 1:
-                args = (args,)
-        return self.function(*args, **matchobject.groupdict())
+        # With 0-1 arguments group() returns a string, else a tuple.
+        if self._unnamed_group_indices:
+            unnamed = matchobject.group(*self._unnamed_group_indices)
+            if len(self._unnamed_group_indices) == 1:
+                unnamed = (unnamed,)
+        else:
+            unnamed = ()
 
-    @classmethod
-    def _generate_re(cls, subpattern):
-        '''Trivial here. Overridden elsewhere in this module.'''
-        return re.compile(subpattern)
+        # To make default values in the user's function meaningful,
+        # eliminate non-matching optional named groups.
+        named = {k: v for k, v in matchobject.groupdict().items()
+                 if v is not None}
 
-    def sub(self, string, **kwargs):
-        return re.sub(self.re, self._preprocess, string, **kwargs)
-
-    def subn(self, string, **kwargs):
-        return re.subn(self.re, self._preprocess, string, **kwargs)
+        return (unnamed, named)
 
     def __repr__(self):
         s = '<Ovid processor for {}>'
@@ -128,20 +186,20 @@ class TwoWayProcessor(OneWayProcessor):
 
     def produce(self, *unnamed, **named):
         '''Present an appropriate target string.'''
-        b = 'Cannot reverse {}'.format(repr(self))
+        lead = 'Cannot reverse {}'.format(repr(self))
 
         for i, stuff in enumerate(zip(unnamed,
                                       self._production_groups_unnamed)):
             content, regex = stuff
             if not re.fullmatch(regex, content):
                 s = "{}: Unnamed group {}'s content '{}' does not match '{}'."
-                raise ValueError(s.format(b, i, content, regex))
+                raise ValueError(s.format(lead, i, content, regex))
 
         for name, content in named.items():
             regex = self._production_groups_named[name]
             if not re.fullmatch(regex, content):
                 s = "{}: Named group {}'s content '{}' does not match '{}'."
-                raise ValueError(s.format(b, name, content, regex))
+                raise ValueError(s.format(lead, name, content, regex))
 
         return self._production_template.format(*unnamed, **named)
 
@@ -157,12 +215,19 @@ class CollectiveProcessor(OneWayProcessor):
     registry = list()
 
     @classmethod
+    def variant_class(cls, new_registry=True, **kwargs):
+        '''Give the variant its own registry.'''
+        if new_registry:
+            kwargs['registry'] = list()
+        return super().variant_class(**kwargs)
+
+    @classmethod
     def collective_sub(cls, string, **kwargs):
         '''Apply all registered processors until none are applicable.
 
-        This is a risky way to do the job, highly dependent on the order
-        in which the various processors are registered. A depth-first
-        version is available in a subclass.
+        This is a risky way to do the job, dependent on the order in
+        which the various processors are registered. A depth-first
+        version is available in the DelimitedShorthand subclass.
 
         '''
         for individual_processor in cls.registry:
@@ -175,24 +240,30 @@ class CollectiveProcessor(OneWayProcessor):
 class AutoRegisteringProcessor(CollectiveProcessor):
     '''Adds automatic registration of processors on creation.'''
 
-    def __init__(self, *args):
-        super().__init__(*args)
+    def __init__(self, pattern, function):
+        super().__init__(pattern, function)
         self.registry.append(self)
 
 
-class DelimitedShorthand(AutoRegisteringProcessor):
+class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
     '''A bundle of conveniences.
 
     The choice of appropriate delimiters for subclasses is currently
     limited by regex conventions. Parentheses, for example, are not
-    automatically escaped.
+    automatically escaped to generate regexes for searching for literal
+    parentheses. For parentheses to be useful, they should be escaped
+    when supplied as arguments to variant_class().
+
+    The choice of appropriate delimiters is also limited by the intended
+    level of nesting. Using the same string as lead-in and lead-out will
+    complicate nesting.
 
     '''
 
     lead_in = '{{'
     lead_out = '}}'
 
-    noesc = r'(?<!\\)'  # Negative lookbehind assertion for a backslash.
+    escape = re.escape('\\')
 
     class OpenShorthandError(ValueError):
         '''Raised when what appears to be markup is not properly delimited.'''
@@ -213,23 +284,49 @@ class DelimitedShorthand(AutoRegisteringProcessor):
         return re.compile(''.join((cls.lead_in, subpattern, cls.lead_out)))
 
     @classmethod
+    @OneWayProcessor.cache_results()
     def _targetfinder(cls):
-        '''Generate and cache a pattern useful for working with nesting.
+        '''Generate a regex pattern useful for working with nesting.
 
-        This pattern has to find the smallest group of any
-        characters inside a pair of non-escaped delimiters and containing
-        no non-escaped delimiters. The group is allowed to be empty,
-        to catch broken markup.
+        This pattern has to find the smallest group of characters
+        inside a pair of active (i.e. not escaped) delimiters. To
+        guarantee that the group is minimal, it cannot contain a
+        non-escaped lead-in. This is what causes nested groups to be
+        resolved from the inside out in collective substitutions.
+
+        The group is allowed to be empty, to catch broken markup where
+        a user forgot to add content.
+
+        The group is allowed to contain escaped delimiters, skipping
+        over such sequences in their entirety to avoid misinterpreting
+        single-character delimiters after passing their escape
+        characters.
 
         '''
-        try:
-            return cls._cached_targetfinder
-        except AttributeError:
-            i, o = (cls.noesc + cls.lead_in, cls.noesc + cls.lead_out)
-            s = r'{i}((?:(?!(?:{e}{i}|{o})).)*?){o}'
-            p = s.format(i=i, o=o, e=cls.noesc)
-            cls._cached_targetfinder = re.compile(p)
-            return cls._cached_targetfinder
+        s = (r'{active_in}'
+             r'((?:{inactive_in}|{inactive_out}|(?!{active_in}).)*?)'
+             r'{active_out}')
+        p = s.format(active_in=cls._unescape(cls.lead_in),
+                     inactive_in=cls._escape(cls.lead_in),
+                     active_out=cls._unescape(cls.lead_out),
+                     inactive_out=cls._escape(cls.lead_out))
+        return re.compile(p)
+
+    @classmethod
+    @OneWayProcessor.cache_results()
+    def _escape(cls, delimiter):
+        '''Produce a regex pattern for a delimiter in its escaped form.'''
+        if cls.escape and delimiter:
+            return ''.join((cls.escape + d for d in delimiter))
+        return delimiter
+
+    @classmethod
+    @OneWayProcessor.cache_results()
+    def _unescape(cls, delimiter):
+        '''Produce a regex pattern for a delimiter in its unescaped form.'''
+        if cls.escape and len(delimiter) == 1:
+            return r'(?<!{}){}'.format(re.escape(cls.escape), delimiter)
+        return delimiter
 
     @classmethod
     def collective_sub(cls, raw_string, safe=True, **kwargs):
@@ -239,7 +336,7 @@ class DelimitedShorthand(AutoRegisteringProcessor):
         if safe:
             delimiters = (cls.lead_in, cls.lead_out)
             for delimiter in delimiters:
-                if re.search(cls.noesc + delimiter, cooked_string):
+                if re.search(cls._unescape(delimiter), cooked_string):
                     b = 'Open (unbalanced) shorthand expression'
 
                     s = '{} resulting from "{}".'
@@ -265,6 +362,12 @@ class DelimitedShorthand(AutoRegisteringProcessor):
                 # No effect. Likely user error.
                 # However, this may also be caused by processors having
                 # output identical to their own input.
+
+                s = 'Giving up after applying the following regexes:'
+                logging.warning(s)
+                for i in cls.registry:
+                    logging.warning(i.re.pattern)
+
                 s = "Unable to substitute for '{}'."
                 raise cls.UnknownShorthandError(s.format(repl))
 
@@ -276,11 +379,3 @@ class DelimitedShorthand(AutoRegisteringProcessor):
 
         # Nothing else looks like valid markup.
         return string
-
-
-class GenericDelimitedShorthand(DelimitedShorthand):
-    '''A further simplification for use with a generic master function.'''
-
-    def __init__(self, function):
-        '''Accept any content, but lazily, and cushioned by delimiters.'''
-        super().__init__('(.*?)', function)
