@@ -16,6 +16,12 @@ class _FunctionLikeDelimitedShorthand(ovid.basic.DelimitedShorthand):
 
     _python_identifier = r'[^\d\W]\w*'
 
+    @classmethod
+    def register(cls, function):
+        '''A decorator for use on markup functions.'''
+        cls(function)
+        return function
+
 
 class SignatureShorthand(_FunctionLikeDelimitedShorthand):
     '''Markup that looks like a function call.

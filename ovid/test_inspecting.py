@@ -177,3 +177,15 @@ class Tail(unittest.TestCase):
     def test_inert(self):
         self.assertEqual(self.a1.collective_sub('{a|x}bc'), 'xbc')
         self.assertEqual(self.a2.collective_sub('{{a|x}}bc'), 'xbc')
+
+
+class RegisteringDecorator(unittest.TestCase):
+    def test_decoration(self):
+        inspecting.IndiscriminateShorthand.registry.clear()
+
+        @inspecting.IndiscriminateShorthand.register
+        def f(name):
+            return 'e' + name
+
+        ret = inspecting.IndiscriminateShorthand.collective_sub('t{{x}}t')
+        self.assertEqual(ret, 'text')

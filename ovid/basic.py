@@ -19,6 +19,8 @@ import functools
 
 
 class Cacher(type):
+    '''Metaclass for caching classes.'''
+
     def __new__(cls, *args, **kwargs):
         new = super().__new__(cls, *args, **kwargs)
         new._cache = dict()
@@ -284,7 +286,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
         return re.compile(''.join((cls.lead_in, subpattern, cls.lead_out)))
 
     @classmethod
-    @OneWayProcessor.cache_results()
+    @Cacher.cache_results()
     def _targetfinder(cls):
         '''Generate a regex pattern useful for working with nesting.
 
@@ -313,7 +315,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
         return re.compile(p)
 
     @classmethod
-    @OneWayProcessor.cache_results()
+    @Cacher.cache_results()
     def _escape(cls, delimiter):
         '''Produce a regex pattern for a delimiter in its escaped form.'''
         if cls.escape and delimiter:
@@ -321,7 +323,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
         return delimiter
 
     @classmethod
-    @OneWayProcessor.cache_results()
+    @Cacher.cache_results()
     def _unescape(cls, delimiter):
         '''Produce a regex pattern for a delimiter in its unescaped form.'''
         if cls.escape and len(delimiter) == 1:
