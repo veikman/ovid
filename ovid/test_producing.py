@@ -81,4 +81,4 @@ class SignatureShorthandProduction(unittest.TestCase):
 
         p = ovid.producing.TwoWaySignatureShorthand(a)
         self.assertEqual(p.produce(1, v1=2), '{{a|1|v1=2}}')
-        self.assertEqual(p.produce(1), '{{a|1|v1=}}')
+        self.assertEqual(p.produce(1), '{{a|1}}')
