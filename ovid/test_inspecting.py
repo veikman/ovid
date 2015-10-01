@@ -5,6 +5,7 @@ import logging
 import unittest
 import unittest.mock as mock
 
+import ovid
 import ovid.inspecting as inspecting
 import ovid.test_basic as test_basic
 
@@ -189,3 +190,30 @@ class RegisteringDecorator(unittest.TestCase):
 
         ret = inspecting.IndiscriminateShorthand.collective_sub('t{{x}}t')
         self.assertEqual(ret, 'text')
+
+
+class Production(unittest.TestCase):
+    class Hybrid(inspecting.SignatureShorthand,
+                 ovid.basic.TwoWayProcessor):
+        pass
+
+    def test_production_noargs(self):
+        def h():
+            return '手'
+
+        p = self.Hybrid(h)
+        self.assertEqual(p.produce(), '{{h}}')
+
+    def test_production_unnamed(self):
+        def a(v):
+            raise NotImplementedError
+
+        p = self.Hybrid(a)
+        self.assertEqual(p.produce(1), '{{a|1}}')
+
+    def test_production_named(self):
+        def a(v=None):
+            raise NotImplementedError
+
+        p = self.Hybrid(a)
+        self.assertEqual(p.produce(v=1), '{{a|v=1}}')

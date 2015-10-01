@@ -8,11 +8,22 @@ import re
 import ovid.basic
 
 
-class _FunctionLikeDelimitedShorthand(ovid.basic.DelimitedShorthand):
+class ProductiveCacher(ovid.basic.Cacher):
+    '''A metaclass for classes that need separators and operators.'''
+
+    def __new__(cls, *args, **kwargs):
+        new = super().__new__(cls, *args, **kwargs)
+        new._separator_escaped = re.escape(new.separator)
+        new._assignment_operator_escaped = re.escape(new.assignment_operator)
+        return new
+
+
+class _FunctionLikeDelimitedShorthand(ovid.basic.DelimitedShorthand,
+                                      metaclass=ProductiveCacher):
     '''Base class for further conveniences.'''
 
-    separator = re.escape(r'|')
-    assignment_operator = re.escape(r'=')
+    separator = '|'
+    assignment_operator = '='
 
     _python_identifier = r'[^\d\W]\w*'
 
@@ -38,27 +49,74 @@ class SignatureShorthand(_FunctionLikeDelimitedShorthand):
         n_unnamed = len(argspec.args) - n_named
 
         pattern = function.__name__
-        active_op = self._unescape(self.assignment_operator)
-        active_sep = self._unescape(self.separator)
+        active_op = self._unescape(self._assignment_operator_escaped)
+        active_sep = self._unescape(self._separator_escaped)
 
-        # Mandatory unnamed arguments.
-        # These cannot start with a valid identifier followed by the
-        # assignment operator, because that'd create ambiguity.
-        subpattern = r'((?!{i}{o})(?:(?!{s}).)*)'
-        unnamed = subpattern.format(i=self._python_identifier,
-                                    o=active_op,
-                                    s=active_sep)
+        # The actual content of an unnamed group must not look like a
+        # named group and must not contain an active separator.
+        s = r'(?!{i}{o})((?:(?!{s}).)*)'.format(i=self._python_identifier,
+                                                o=active_op,
+                                                s=active_sep)
+        self._unnamed_pattern = self._double_braces(s)
+
+        # Mandatory unnamed arguments, with separators.
+        subpattern = r'{s}{c}'.format(c=self._unnamed_pattern,
+                                      s=active_sep)
         for _ in argspec.args[:n_unnamed]:
-            pattern += active_sep + unnamed
+            pattern += subpattern
+
+        # A named group is simpler, though its prefix is more complicated.
+        s = r'(?:(?!{s}).)*'.format(s=active_sep)
+        self._named_pattern = self._double_braces(s)
 
         # Optional named arguments.
-        subpattern = r'(?:{s}{n}{o}(?P<{n}>(?:(?!{s}).)*))?'
+        subpattern = r'(?:{s}{{0}}{o}(?P<{{0}}>{c}))?'
+        subpattern = subpattern.format(c=self._named_pattern,
+                                       o=active_op,
+                                       s=active_sep)
         for name in argspec.args[n_unnamed:]:
-            pattern += subpattern.format(n=name,
-                                         o=active_op,
-                                         s=active_sep)
+            pattern += subpattern.format(name)
 
         super().__init__(pattern, function)
+
+    def _evert_groups(self):
+        '''An override of TwoWayProcessor.
+
+        This override exists because initialization creates nested groups,
+        which are not expected by the standard method. Here we can
+        avoid dealing with them, using simple assumptions.
+
+        '''
+        for i in self._unnamed_group_indices:
+            self._production_groups_unnamed.append(self._unnamed_pattern)
+
+        for name, i in sorted(self.re.groupindex.items(), key=lambda x: x[1]):
+            pattern = self._named_pattern.format(name)
+            self._production_groups_named[name] = pattern
+
+        def sep(*args, ignore_empty=False):
+            if ignore_empty:
+                args = filter(lambda x: x, args)
+            return self._double_braces(self.separator).join(args)
+
+        elements = (self._double_braces(self.lead_in),
+                    sep(self.function.__name__,
+                        sep(*('{}' for _ in self._production_groups_unnamed)),
+                        sep(*('{{{}}}'.format(name) for name in
+                              self._production_groups_named)),
+                        ignore_empty=True),
+                    self._double_braces(self.lead_out)
+                    )
+
+        self._production_template = ''.join(elements)
+
+    def _fill_named(self, named):
+        '''An override of TwoWayProcessor.'''
+        for name, content in named.items():
+            regex = self._production_groups_named[name]
+            content = self.assignment_operator.join((name, str(content)))
+            self._must_match(name, regex, content)
+            yield name, content
 
 
 class IndiscriminateShorthand(_FunctionLikeDelimitedShorthand):
@@ -81,11 +139,12 @@ class IndiscriminateShorthand(_FunctionLikeDelimitedShorthand):
 
     def _tokenize(self, string):
         args, kwargs = list(), dict()
-        elements = re.split(self.separator, string)
+        elements = re.split(self._separator_escaped, string)
 
         for e in elements:
             try:
-                key, value = re.split(self.assignment_operator, e, maxsplit=1)
+                key, value = re.split(self._assignment_operator_escaped, e,
+                                      maxsplit=1)
             except ValueError:
                 # Did not split.
                 args.append(e)
