@@ -8,10 +8,7 @@ further shorthand expressions that require functions to resolve.
 TODO: Allow escaping of the various delimiters and separators defined
 herein. Matthew Barnett's regex module would/will make this easier.
 
-Written for Python 3.4. Backwards compatibility is limited by re.fullmatch.
-
 '''
-
 
 import re
 import logging
@@ -131,137 +128,22 @@ class OneWayProcessor(metaclass=Cacher):
 
         return (unnamed, named)
 
+    @classmethod
+    def _double_braces(cls, string):
+        '''Add Python string formatting escapes.
+
+        This method is not used in this class itself, but is used by
+        both producing and inspecting inheritors.
+
+        '''
+        return re.sub('{', '{{', re.sub('}', '}}', string))
+
     def __repr__(self):
         s = '<Ovid processor for {}>'
         return s.format(self.function.__name__)
 
 
-class TwoWayProcessor(OneWayProcessor):
-    '''A processor that can produce targets appropriate for itself.
-
-    This can be used to generate specifications programmatically, for
-    later treatment by the same processor in two different stages of a
-    program.
-
-    Not very competent.
-
-    '''
-
-    class ProductionError(ValueError):
-        pass
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._prepare_production()
-
-    def _prepare_production(self):
-        '''Prepare a number of strings needed for produce().'''
-
-        self._production_template = None
-        self._production_groups_unnamed = list()
-        self._production_groups_named = dict()
-        self._evert_groups()
-
-        s = ('Created {} with consumption regex "{}", production regex "{}" '
-             'for groups "{}", "{}".')
-        logging.debug(s.format(self.__class__.__name__, self.re.pattern,
-                               self._production_template,
-                               self._production_groups_unnamed,
-                               self._production_groups_named))
-
-    def _evert_groups(self):
-        '''Prepare to use content-catching regexes to produce content.
-
-        This method sets the self._production_* variables declared
-        in self._prepare_production(), for use in self.produce().
-
-        NOTE: Nested catching groups are not supported here.
-
-        '''
-
-        def compile_re(string):
-            try:
-                return re.compile(string)
-            except:
-                s = 'Invalid proposed regex group "{}".'
-                logging.error(s.format(string))
-                s = 'Could not evert {}.'
-                logging.error(s.format(self.re.pattern))
-                raise
-
-        def unnamed_group_collector(match):
-            content = match.group(1)
-            self._production_groups_unnamed.append(compile_re(content))
-            return '{}'
-
-        def named_group_collector(match):
-            name, content = match.groups()
-            self._production_groups_named[name] = compile_re(content)
-            return '{{{}}}'.format(name)
-
-        def collect(metapattern, collector):
-            args = (metapattern, collector, self._production_template, 1)
-            self._production_template, n = re.subn(*args)
-            if n:
-                collect(metapattern, collector)
-
-        # Pave the way for the str.format() call in self.produce().
-        self._production_template = self._double_braces(self.re.pattern)
-
-        # Patterns to capture patterns, with fixed-width font commentary.
-        metapattern = r'(?!\\)\((?!\?)(.*?[^\\])\)'
-        # unescaped parens  ^  ^             ^   ^  as delimiters again
-        # not a special group       ^
-        # otherwise any non-empty string ^
-        # NOTE: Nested groups are not supported.
-        collect(metapattern, unnamed_group_collector)
-
-        metapattern = (r'(?!\\)\('
-                       #     ^  ^ leading unescaped parenthesis
-                       r'\?P<(?P<name>\w+)>(?P<content>.*?[^\\])'
-                       # named groups characterising a named group,
-                       # whose content cannot end with a backslash
-                       r'\)')
-                       # ^ closing parenthesis, unescaped by ^
-        collect(metapattern, named_group_collector)
-
-    @classmethod
-    def _double_braces(cls, string):
-        '''Add string formatting escapes.'''
-        return re.sub('{', '{{', re.sub('}', '}}', string))
-
-    def produce(self, *unnamed, **named):
-        '''Present an appropriate target string.'''
-        try:
-            unnamed = tuple(self._fill_unnamed(map(str, unnamed)))
-            named = {k: v for k, v in self._fill_named(named)}
-        except:
-            logging.error('Cannot reverse {}.'.format(repr(self)))
-            raise
-
-        return self._production_template.format(*unnamed, **named)
-
-    def _fill_unnamed(self, contents):
-        '''Use zip to get the shorter sequence.'''
-        for i, stuff in enumerate(zip(contents,
-                                      self._production_groups_unnamed)):
-            content, regex = stuff
-            self._must_match(i, regex, content)
-            yield content
-
-    def _fill_named(self, named):
-        for name, content in named.items():
-            regex = self._production_groups_named[name]
-            self._must_match(name, regex, content)
-            yield name, content
-
-    def _must_match(self, group, regex, content):
-        if not re.fullmatch(regex, str(content)):
-            s = "Group {}'s proposed content '{}' does not match '{}'."
-            raise self.ProductionError(s.format(group, content, regex))
-
-
-class CollectiveProcessor(TwoWayProcessor):
+class CollectiveProcessor(OneWayProcessor):
     '''Adds the ability to run multiple processors recursively.
 
     The intended use case for this subclass is to do consistent project-

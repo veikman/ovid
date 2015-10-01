@@ -8,7 +8,7 @@ import re
 import ovid.basic
 
 
-class ProductiveCacher(ovid.basic.Cacher):
+class AutoEscapingCacher(ovid.basic.Cacher):
     '''A metaclass for classes that need separators and operators.'''
 
     def __new__(cls, *args, **kwargs):
@@ -19,7 +19,7 @@ class ProductiveCacher(ovid.basic.Cacher):
 
 
 class _FunctionLikeDelimitedShorthand(ovid.basic.DelimitedShorthand,
-                                      metaclass=ProductiveCacher):
+                                      metaclass=AutoEscapingCacher):
     '''Base class for further conveniences.'''
 
     separator = '|'
@@ -44,6 +44,11 @@ class SignatureShorthand(_FunctionLikeDelimitedShorthand):
     '''
 
     def __init__(self, function):
+        '''A few things done here are unnecessary for this one-way version.
+
+        They're intended for the producing subclass.
+
+        '''
         argspec = inspect.getfullargspec(function)
         n_named = len(argspec.defaults if argspec.defaults else ())
         n_unnamed = len(argspec.args) - n_named
@@ -78,45 +83,6 @@ class SignatureShorthand(_FunctionLikeDelimitedShorthand):
             pattern += subpattern.format(name)
 
         super().__init__(pattern, function)
-
-    def _evert_groups(self):
-        '''An override of TwoWayProcessor.
-
-        This override exists because initialization creates nested groups,
-        which are not expected by the standard method. Here we can
-        avoid dealing with them, using simple assumptions.
-
-        '''
-        for i in self._unnamed_group_indices:
-            self._production_groups_unnamed.append(self._unnamed_pattern)
-
-        for name, i in sorted(self.re.groupindex.items(), key=lambda x: x[1]):
-            pattern = self._named_pattern.format(name)
-            self._production_groups_named[name] = pattern
-
-        def sep(*args, ignore_empty=False):
-            if ignore_empty:
-                args = filter(lambda x: x, args)
-            return self._double_braces(self.separator).join(args)
-
-        elements = (self._double_braces(self.lead_in),
-                    sep(self.function.__name__,
-                        sep(*('{}' for _ in self._production_groups_unnamed)),
-                        sep(*('{{{}}}'.format(name) for name in
-                              self._production_groups_named)),
-                        ignore_empty=True),
-                    self._double_braces(self.lead_out)
-                    )
-
-        self._production_template = ''.join(elements)
-
-    def _fill_named(self, named):
-        '''An override of TwoWayProcessor.'''
-        for name, content in named.items():
-            regex = self._production_groups_named[name]
-            content = self.assignment_operator.join((name, str(content)))
-            self._must_match(name, regex, content)
-            yield name, content
 
 
 class IndiscriminateShorthand(_FunctionLikeDelimitedShorthand):
