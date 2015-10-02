@@ -28,9 +28,29 @@ class _FunctionLikeDelimitedShorthand(ovid.basic.DelimitedShorthand,
     _python_identifier = r'[^\d\W]\w*'
 
     @classmethod
+    def swallow(cls, function):
+        '''A decorator for use on markup functions.
+
+        Used alone, what this does is to register the decorated
+        function as markup and replace the decorated function in the
+        namespace of its module with the markup created from it.
+
+        This is useful mainly for two-way (producing) markup
+        processors, which need to be individually accessible.
+
+        '''
+        return cls(function)
+
+    @classmethod
     def register(cls, function):
-        '''A decorator for use on markup functions.'''
-        cls(function)
+        '''A decorator for use on markup functions.
+
+        The effect of this is the same as transform(), except that
+        the function is left intact in the namespace, and the markup
+        ends up less accessible in the registry of the class.
+
+        '''
+        cls.swallow(function)
         return function
 
 

@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='Ovid',
-    version='0.3.1',
+    version='0.3.2',
     description='Text metamorphosis toolbox',
     requires=[],
     author='Viktor Eikman',
