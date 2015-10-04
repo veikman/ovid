@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Basic tools for Ovid's metamorphoses: arbitrary substring substitutions.
+'''Basic tools for metamorphoses: arbitrary substring substitutions.
 
 This module is not suitable for anything Python's re module can do alone.
 It's built for frameworks where nested shorthand expressions can produce
@@ -7,6 +7,25 @@ further shorthand expressions that require functions to resolve.
 
 TODO: Allow escaping of the various delimiters and separators defined
 herein. Matthew Barnett's regex module would/will make this easier.
+
+------
+
+This file is part of Ovid.
+
+Ovid is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Ovid is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
+
+Copyright 2015 Viktor Eikman
 
 '''
 

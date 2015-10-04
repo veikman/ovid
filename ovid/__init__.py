@@ -1,3 +1,5 @@
+'''Ovid: tools for text metamorphosis.'''
+
 import ovid.basic
 import ovid.inspecting
 import ovid.producing
