@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2015 Viktor Eikman
+Copyright 2015-2016 Viktor Eikman
 
 '''
 
@@ -138,11 +138,16 @@ class IndiscriminateShorthand(_FunctionLikeDelimitedShorthand):
         '''Accept any content, but lazily, and cushioned by delimiters.'''
         super().__init__('(.*?)', function)
 
-    def _process(self, matchobject):
+    def _process(self, parser, string, **kwargs):
         '''Break down the single unnamed group in the regex.'''
-        unnamed, _ = self._unique_groups(matchobject)
-        args, kwargs = self._tokenize(unnamed[0])
-        return self.function(*args, **kwargs)
+
+        def repl(matchobject):
+            groups, _ = self._unique_groups(matchobject)
+            args, named = self._tokenize(groups[0])
+            kwargs.update(named)
+            return self.function(*args, **kwargs)
+
+        return parser(repl, string, count=kwargs.pop('count', 0))
 
     def _tokenize(self, string):
         args, kwargs = list(), dict()
