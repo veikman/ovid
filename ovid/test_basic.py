@@ -2,6 +2,7 @@
 '''Unit tests for the basic module.'''
 
 
+import collections
 import logging
 import re
 import unittest
@@ -22,6 +23,37 @@ def suppress(logging_level):
             logging.disable(logging.NOTSET)
         return replacement
     return decorator
+
+
+class Basic(unittest.TestCase):
+    def test_elementary(self):
+        self.assertEqual(basic.OneWayProcessor('a', lambda: 'b').sub('a'), 'b')
+
+    def test_operation_on_unnamed_group(self):
+        self.assertEqual(basic.OneWayProcessor('(.)',
+                                               lambda v: 2 * v).sub('a'),
+                         'aa')
+
+    def test_collective(self):
+        cls = basic.AutoRegisteringProcessor
+        cls.registry.clear()
+        cls('a', lambda: 'A')
+        cls('b', lambda: 'B')
+
+        ret = cls.collective_sub('ab')
+        self.assertEqual(ret, 'AB')
+
+        ret = cls.collective_sub('bab')
+        self.assertEqual(ret, 'BAB')
+
+        ret = cls.collective_sub('c')
+        self.assertEqual(ret, 'c')
+
+        # Tempt infinite recursion. 'C' will match '.'.
+        cls('.', lambda: 'C')
+
+        ret = cls.collective_sub('c')
+        self.assertEqual(ret, 'C')
 
 
 class Automatic(unittest.TestCase):
@@ -123,6 +155,8 @@ class Caching(unittest.TestCase):
         pass
 
     def setUp(self):
+        basic.CollectiveProcessor.registry.clear()
+        basic.OneWayProcessor._cache.clear()
         basic.OneWayProcessor._cache.clear()
         basic.DelimitedShorthand._cache.clear()
         self.SubClass._cache.clear()
@@ -179,3 +213,126 @@ class DynamicSubclassing(unittest.TestCase):
         c('g', f)
         ret = c.collective_sub('´|g|a')
         self.assertEqual(ret, '´xa')
+
+
+class Passthrough(unittest.TestCase):
+    def test_single(self):
+        deque = collections.deque()
+
+        def f(string, passthrough=None):
+            deque.append(string)
+            deque.append(passthrough)
+            return 'c'
+
+        processor = basic.OneWayProcessor('(.*)', f)
+        ret = processor.sub('a', passthrough='b')
+
+        self.assertEqual(ret, 'c')
+        self.assertEqual(deque.popleft(), 'a')
+        self.assertEqual(deque.popleft(), 'b')
+        self.assertFalse(deque)
+
+        ret = processor.sub('d', passthrough=1)
+
+        self.assertEqual(ret, 'c')
+        self.assertEqual(deque.popleft(), 'd')
+        self.assertEqual(deque.popleft(), 1)
+        self.assertFalse(deque)
+
+        ret = processor.sub('e')
+
+        self.assertEqual(ret, 'c')
+        self.assertEqual(deque.popleft(), 'e')
+        self.assertEqual(deque.popleft(), None)
+        self.assertFalse(deque)
+
+    def test_multiple(self):
+        deque = collections.deque()
+
+        def f(_, **kwargs):
+            deque.append(kwargs)
+            return '_'
+
+        processor = basic.OneWayProcessor('(.*)', f)
+        ret = processor.sub('a', b0='b', b1='B')
+
+        self.assertEqual(ret, '_')
+        self.assertEqual(deque.popleft(), {'b0': 'b', 'b1': 'B'})
+        self.assertFalse(deque)
+
+        processor.sub('_', lst=['a'])
+
+        self.assertEqual(deque.popleft(), {'lst': ['a']})
+        self.assertFalse(deque)
+
+    def test_basic_collective(self):
+        deque = collections.deque()
+
+        def f0(string, passthrough=None):
+            deque.append(string)
+            if passthrough is not None:
+                deque.append(passthrough)
+            return '¹'
+
+        def f1(string, passthrough=None):
+            f0(string, passthrough=passthrough)
+            return '²'
+
+        basic.AutoRegisteringProcessor.registry.clear()
+        basic.AutoRegisteringProcessor('(a)', f0)
+        basic.AutoRegisteringProcessor('(.*)', f1)
+
+        ret = basic.AutoRegisteringProcessor.collective_sub('b')
+
+        self.assertEqual(ret, '²')
+        self.assertEqual(deque.popleft(), 'b')
+        self.assertEqual(deque.popleft(), '²')
+        self.assertFalse(deque)
+
+        ret = basic.AutoRegisteringProcessor.collective_sub('a',
+                                                            passthrough=True)
+
+        self.assertEqual(ret, '²')
+        self.assertEqual(deque.popleft(), 'a')
+        self.assertEqual(deque.popleft(), True)
+        self.assertEqual(deque.popleft(), '¹')
+        self.assertEqual(deque.popleft(), True)
+        self.assertEqual(deque.popleft(), '²')
+        self.assertEqual(deque.popleft(), True)
+        self.assertFalse(deque)
+
+        ret = basic.AutoRegisteringProcessor.collective_sub('A',
+                                                            passthrough=False)
+
+        self.assertEqual(ret, '²')
+        self.assertEqual(deque.popleft(), 'A')
+        self.assertEqual(deque.popleft(), False)
+        self.assertEqual(deque.popleft(), '²')
+        self.assertEqual(deque.popleft(), False)
+        self.assertFalse(deque)
+
+    def test_delimited_collective(self):
+        deque = collections.deque()
+
+        class Processor(basic.DelimitedShorthand):
+            pass
+
+        def f0(passthrough=None):
+            deque.append(passthrough)
+            return '¹'
+
+        Processor.registry.clear()
+        Processor._cache.clear()
+        Processor('a', f0)
+
+        ret = Processor.collective_sub('{{a}}')
+
+        self.assertEqual(ret, '¹')
+        self.assertEqual(deque.popleft(), None)
+        self.assertFalse(deque)
+
+        ret = Processor.collective_sub('{{a}}', passthrough='A')
+
+        self.assertEqual(ret, '¹')
+        self.assertEqual(deque.popleft(), 'A')
+        self.assertFalse(deque)

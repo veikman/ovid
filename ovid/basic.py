@@ -25,7 +25,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2015 Viktor Eikman
+Copyright 2015-2016 Viktor Eikman
 
 '''
 
@@ -90,7 +90,7 @@ class OneWayProcessor(metaclass=Cacher):
     def variant_class(cls, name='Custom', **kwargs):
         '''Generate a fresh subclass.
 
-        This is useful for subclassing subclasses of this class.
+        This is useful for subclassing subclasses of OneWayProcessor.
         In particular, it's intended for customizing lead-in strings,
         separator strings etc., and to easily make subclasses with
         their own registries, none of which exist on OneWayProcessor.
@@ -99,14 +99,25 @@ class OneWayProcessor(metaclass=Cacher):
         return type(name, (cls,), kwargs)
 
     def sub(self, string, **kwargs):
-        return re.sub(self.re, self._process, string, **kwargs)
+        return self._process(self.re.sub, string, **kwargs)
 
     def subn(self, string, **kwargs):
-        return re.subn(self.re, self._process, string, **kwargs)
+        return self._process(self.re.subn, string, **kwargs)
 
-    def _process(self, matchobject):
-        unnamed, named = self._unique_groups(matchobject)
-        return self.function(*unnamed, **named)
+    def _process(self, parser, string, **kwargs):
+        '''Apply self.re.sub or self.re.subn as parsers.
+
+        Pass keywords arguments not supported by those parsers to
+        self.function.
+
+        '''
+
+        def repl(matchobject):
+            unnamed, named = self._unique_groups(matchobject)
+            kwargs.update(named)
+            return self.function(*unnamed, **kwargs)
+
+        return parser(repl, string, count=kwargs.pop('count', 0))
 
     def _unique_groups(self, matchobject):
         '''Break down match objects for the processor function.
@@ -189,8 +200,12 @@ class CollectiveProcessor(OneWayProcessor):
 
         '''
         for individual_processor in cls.registry:
-            string, n = individual_processor.subn(string, **kwargs)
-            if n:
+            s, n = individual_processor.subn(string, **kwargs)
+            if n and s != string:
+                # A hit happened and the string actually changed. Recurse.
+                # Checking the content prevents infinite recursion where
+                # some output is valid input.
+                string = s
                 return cls.collective_sub(string, **kwargs)
         return string
 
@@ -294,7 +309,8 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
         if safe:
             delimiters = (cls.lead_in, cls.lead_out)
             for delimiter in delimiters:
-                if re.search(cls._unescape(delimiter), cooked_string):
+                if re.search(cls._unescape(delimiter), cooked_string,
+                             flags=kwargs.get('flags', 0)):
                     b = 'Open (unbalanced) shorthand expression'
 
                     s = '{} resulting from "{}".'
@@ -313,7 +329,8 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
     @classmethod
     def _collective_sub_unsafe(cls, string, **kwargs):
         '''Depth-first search, using delimiters to control resolution order.'''
-        target = re.search(cls._targetfinder(), string, **kwargs)
+        target = re.search(cls._targetfinder(), string,
+                           flags=kwargs.get('flags', 0))
         if target:
             repl = super().collective_sub(target.group(), **kwargs)
             if repl == target.group():

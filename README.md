@@ -31,7 +31,7 @@ through a decorator.
 
     >>> @ovid.inspecting.SignatureShorthand.register
     >>> def melee(to_hit, damage, defense=''):
-    ...     repl = 'Melee weapon: {} to hit with {} damage.'
+    ...     repl = '{} to hit with {} damage.'
     ...     repl = repl.format(to_hit or '±0', damage or '±0')
     ...     if defense:
     ...         repl += ' {} to be hit in melee.'.format(defense)
@@ -45,30 +45,34 @@ through a decorator.
     ... 
     >>> sample = 'A stick. {{wood}} {{melee||+1|defense=-1}}'
     >>> ovid.inspecting.SignatureShorthand.collective_sub(sample)
-    'A stick. The bark is gray. Melee weapon: ±0 to hit with +1 damage. -1 to be hit in melee.'
+    'A stick. The bark is gray. ±0 to hit with +1 damage. -1 to be hit in melee.'
 
 Here, the decorator automatically adds our two functions to a registry,
 and the Ovid class constructs our regular expressions for us, with
 delimiters and separators that can be customized through subclassing.
 We apply both processors collectively, through a class method. Collective
-application supports recursion and nesting.
+application supports recursion, nesting, and the passing of additional
+contextual information to processors.
 
 ### Use cases
 
-Ovid grew out of [CBG](https://github.com/veikman/cbg). Ovid combines
-with CBG to support shorthand expressions in, for example, YAML. The
-expressions expand to repetitive rule text and symbols on playing cards.
-
-Because advanced Ovid processors can "evert" and produce the expressions
-they themselves would consume, Ovid also combines with CBG to generate
-elegant raw text specifications for larger games.
+Ovid grew out of [CBG](https://github.com/veikman/cbg). There, Ovid enables
+shorthand expressions in the manual text input that CBG uses to make
+playing cards. Because advanced Ovid processors can "evert" and produce
+the expressions they themselves would consume, Ovid also combines with CBG
+to generate elegant raw text specifications for larger games.
 
 A more complicated real-world use case is the maintenance of the author's
 website. Here, Ovid refines specifications as a pre-processor to Markdown.
 This makes it easy to write a blog article that references a movie review
 that hasn't been written yet. When the review is eventually added to the
 database, an Ovid processor finds it and adds a working hyperlink to the
-article, in its published form.
+article's published form.
+
+In the same process, the Django model instance that owns each raw string
+is passed through the Ovid layer to the encapsulated functions as
+contextual information, which enables these functions to map internal
+references in addition to replacing substrings.
 
 ### Legal
 

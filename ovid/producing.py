@@ -24,7 +24,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2015 Viktor Eikman
+Copyright 2015-2016 Viktor Eikman
 
 '''
 
@@ -118,7 +118,7 @@ class TwoWayProcessor(ovid.basic.OneWayProcessor):
                        # named groups characterising a named group,
                        # whose content cannot end with a backslash
                        r'\)')
-                       # ^ closing parenthesis, unescaped by ^
+        #                ^ closing parenthesis, unescaped by ^
         collect(metapattern, named_group_collector)
 
     def produce(self, *unnamed, **named):
