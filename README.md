@@ -16,7 +16,7 @@ Here is a trivial example from an interactive Python interpreter:
 
     >>> def f(group):
     ...     return 3 * group
-    ... 
+    ...
     >>> ovid.basic.OneWayProcessor('(b)', f).sub('abc')
     'abbbc'
 
@@ -26,7 +26,7 @@ receive the match object, just the contents. The only point to using Ovid
 for something this basic is that our function can be relatively simple,
 compared to functions that need to treat complete match objects.
 
-A slighly more meaningful example follows, using a different Ovid class,
+A slightly more meaningful example follows, using a different Ovid class,
 through a decorator.
 
     >>> @ovid.inspecting.SignatureShorthand.register
@@ -36,7 +36,7 @@ through a decorator.
     ...     if defense:
     ...         repl += ' {} to be hit in melee.'.format(defense)
     ...     return repl
-    ... 
+    ...
     >>> @ovid.inspecting.SignatureShorthand.register
     >>> def wood():
     ...     bark_states = ('mostly stripped', 'brown', 'gray')
@@ -77,4 +77,3 @@ references in addition to replacing substrings.
 ### Legal
 
 Ovid is licensed as detailed in the accompanying file COPYING.txt.
-

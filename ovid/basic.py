@@ -25,7 +25,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2015-2016 Viktor Eikman
+Copyright 2015-2017 Viktor Eikman
 
 '''
 
@@ -71,6 +71,8 @@ class OneWayProcessor(metaclass=Cacher):
     This class wraps some "re" module functions in homonymous methods.
 
     '''
+
+    log = logging.getLogger('ovid')
 
     def __init__(self, pattern, function):
         self.re = self._generate_re(pattern)
@@ -314,10 +316,10 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
                     b = 'Open (unbalanced) shorthand expression'
 
                     s = '{} resulting from "{}".'
-                    logging.error(s.format(b, raw_string))
+                    cls.log.error(s.format(b, raw_string))
 
                     s = '{} in "{}".'
-                    logging.error(s.format(b, cooked_string))
+                    cls.log.error(s.format(b, cooked_string))
 
                     s = '{}: Found {} without a corresponding {}.'
                     opposite = delimiters[1 - delimiters.index(delimiter)]
@@ -339,9 +341,9 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
                 # output identical to their own input.
 
                 s = 'Giving up after applying the following regexes:'
-                logging.warning(s)
+                cls.log.warning(s)
                 for i in cls.registry:
-                    logging.warning(i.re.pattern)
+                    cls.log.warning(i.re.pattern)
 
                 s = "Unable to substitute for '{}'."
                 raise cls.UnknownShorthandError(s.format(repl))

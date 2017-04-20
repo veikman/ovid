@@ -7,7 +7,7 @@ import logging
 import re
 import unittest
 
-import ovid.basic as basic
+from . import basic
 
 
 def suppress(logging_level):

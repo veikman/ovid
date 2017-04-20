@@ -24,17 +24,17 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2015-2016 Viktor Eikman
+Copyright 2015-2017 Viktor Eikman
 
 '''
 
-import logging
 import re
 
-import ovid.basic
+from . import basic
+from . import inspecting
 
 
-class TwoWayProcessor(ovid.basic.OneWayProcessor):
+class TwoWayProcessor(basic.OneWayProcessor):
     '''The most basic two-way processor. Not very competent.
 
     You can subclass anything in ovid.basic with this and get its
@@ -62,10 +62,10 @@ class TwoWayProcessor(ovid.basic.OneWayProcessor):
 
         s = ('Created {} with consumption regex "{}", production regex "{}" '
              'for groups "{}", "{}".')
-        logging.debug(s.format(self.__class__.__name__, self.re.pattern,
-                               self._production_template,
-                               self._production_groups_unnamed,
-                               self._production_groups_named))
+        self.log.debug(s.format(self.__class__.__name__, self.re.pattern,
+                                self._production_template,
+                                self._production_groups_unnamed,
+                                self._production_groups_named))
 
     def _evert_groups(self):
         '''Prepare to use content-catching regexes to produce content.
@@ -80,9 +80,9 @@ class TwoWayProcessor(ovid.basic.OneWayProcessor):
                 return re.compile(string)
             except:
                 s = 'Invalid proposed regex group "{}".'
-                logging.error(s.format(string))
+                self.log.error(s.format(string))
                 s = 'Could not evert {}.'
-                logging.error(s.format(self.re.pattern))
+                self.log.error(s.format(self.re.pattern))
                 raise
 
         def unnamed_group_collector(match):
@@ -127,7 +127,7 @@ class TwoWayProcessor(ovid.basic.OneWayProcessor):
             unnamed = tuple(self._fill_unnamed(map(str, unnamed)))
             named = {k: v for k, v in self._fill_named(named)}
         except:
-            logging.error('Cannot reverse {}.'.format(repr(self)))
+            self.log.error('Cannot reverse {}.'.format(repr(self)))
             raise
 
         return self._production_template.format(*unnamed, **named)
@@ -152,8 +152,7 @@ class TwoWayProcessor(ovid.basic.OneWayProcessor):
             raise self.ProductionError(s.format(group, content, regex))
 
 
-class TwoWaySignatureShorthand(ovid.inspecting.SignatureShorthand,
-                               TwoWayProcessor):
+class TwoWaySignatureShorthand(inspecting.SignatureShorthand, TwoWayProcessor):
     '''Special treatment for SignatureShorthand.'''
 
     def _evert_groups(self):

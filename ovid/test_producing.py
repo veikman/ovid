@@ -5,7 +5,8 @@
 import unittest
 import unittest.mock as mock
 
-import ovid
+from . import basic
+from . import producing
 
 
 class SubstitutionElements(unittest.TestCase):
@@ -17,13 +18,13 @@ class SubstitutionElements(unittest.TestCase):
             m(*args, **kwargs)
             return ''
 
-        processor = ovid.basic.OneWayProcessor(regex, f)
+        processor = basic.OneWayProcessor(regex, f)
         processor.sub('abc')
         m.assert_called_once_with(*args, **kwargs)
 
     def _backwards(self, regex, reference_output, *args, **kwargs):
         '''Examine the matchable product of reverse operation.'''
-        processor = ovid.producing.TwoWayProcessor(regex, lambda: None)
+        processor = producing.TwoWayProcessor(regex, lambda: None)
         self.assertEqual(reference_output, processor.produce(*args, **kwargs))
 
     def _twoway(self, regex, reference_output, *args, **kwargs):
@@ -57,7 +58,7 @@ class SignatureShorthandProduction(unittest.TestCase):
         def h():
             return '手'
 
-        p = ovid.producing.TwoWaySignatureShorthand(h)
+        p = producing.TwoWaySignatureShorthand(h)
         self.assertEqual(p.produce(), '{{h}}')
         self.assertEqual(p.sub(p.produce()), '手')
 
@@ -65,20 +66,20 @@ class SignatureShorthandProduction(unittest.TestCase):
         def a(v):
             raise NotImplementedError
 
-        p = ovid.producing.TwoWaySignatureShorthand(a)
+        p = producing.TwoWaySignatureShorthand(a)
         self.assertEqual(p.produce(1), '{{a|1}}')
 
     def test_production_named(self):
         def a(v=None):
             raise NotImplementedError
 
-        p = ovid.producing.TwoWaySignatureShorthand(a)
+        p = producing.TwoWaySignatureShorthand(a)
         self.assertEqual(p.produce(v=1), '{{a|v=1}}')
 
     def test_production_combined(self):
         def a(v0, v1=None):
             raise NotImplementedError
 
-        p = ovid.producing.TwoWaySignatureShorthand(a)
+        p = producing.TwoWaySignatureShorthand(a)
         self.assertEqual(p.produce(1, v1=2), '{{a|1|v1=2}}')
         self.assertEqual(p.produce(1), '{{a|1}}')

@@ -17,4 +17,3 @@ install_debian: test
 
 clean:
 	rm -rf dist build deb_dist MANIFEST *.tar.* *.deb
-

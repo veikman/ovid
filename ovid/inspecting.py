@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2015-2016 Viktor Eikman
+Copyright 2015-2017 Viktor Eikman
 
 '''
 
@@ -26,10 +26,10 @@ Copyright 2015-2016 Viktor Eikman
 import inspect
 import re
 
-import ovid.basic
+from . import basic
 
 
-class AutoEscapingCacher(ovid.basic.Cacher):
+class AutoEscapingCacher(basic.Cacher):
     '''A metaclass for classes that need separators and operators.'''
 
     def __new__(cls, *args, **kwargs):
@@ -39,7 +39,7 @@ class AutoEscapingCacher(ovid.basic.Cacher):
         return new
 
 
-class _FunctionLikeDelimitedShorthand(ovid.basic.DelimitedShorthand,
+class _FunctionLikeDelimitedShorthand(basic.DelimitedShorthand,
                                       metaclass=AutoEscapingCacher):
     '''Base class for further conveniences.'''
 

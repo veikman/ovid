@@ -6,8 +6,8 @@ import logging
 import unittest
 import unittest.mock as mock
 
-import ovid.inspecting as inspecting
-import ovid.test_basic as test_basic
+from . import inspecting
+from . import test_basic
 
 
 _Unknown = inspecting.SignatureShorthand.UnknownShorthandError
