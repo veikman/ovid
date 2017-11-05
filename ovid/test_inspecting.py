@@ -3,6 +3,7 @@
 
 
 import logging
+import re
 import unittest
 import unittest.mock as mock
 
@@ -170,6 +171,10 @@ class Tail(unittest.TestCase):
         lead_in = '{'
         lead_out = '}'
 
+    class Multiline(inspecting.SignatureShorthand):
+        registry = list()
+        flags = re.DOTALL
+
     @classmethod
     def setUpClass(cls):
         def a(one):
@@ -177,22 +182,26 @@ class Tail(unittest.TestCase):
 
         cls.a1 = cls.SingleCharacterDelimiters(a)
         cls.a2 = inspecting.SignatureShorthand(a)
+        cls.a3 = cls.Multiline(a)
 
     def test_negative(self):
         self.assertEqual(self.a1.collective_sub('abc'), 'abc')
         self.assertEqual(self.a2.collective_sub('abc'), 'abc')
+        self.assertEqual(self.a3.collective_sub('abc'), 'abc')
 
     def test_inert(self):
         self.assertEqual(self.a1.collective_sub('{a|x}bc'), 'xbc')
         self.assertEqual(self.a2.collective_sub('{{a|x}}bc'), 'xbc')
+        self.assertEqual(self.a3.collective_sub('{{a|x}}bc'), 'xbc')
 
     @test_basic.suppress(logging.ERROR)
     def test_multiline(self):
-        exc = self.SingleCharacterDelimiters.OpenShorthandError
+        exc = inspecting.SignatureShorthand.OpenShorthandError
         with self.assertRaises(exc):
             self.assertEqual(self.a1.collective_sub('{a|x\ny}bc'), 'x\nybc')
         with self.assertRaises(exc):
             self.assertEqual(self.a2.collective_sub('{{a|x\ny}}bc'), 'x\nybc')
+        self.assertEqual(self.a3.collective_sub('{{a|x\ny}}bc'), 'x\nybc')
 
 
 class RegisteringDecorator(unittest.TestCase):

@@ -74,8 +74,8 @@ class OneWayProcessor(metaclass=Cacher):
 
     log = logging.getLogger('ovid')
 
-    def __init__(self, pattern, function):
-        self.re = self._generate_re(pattern)
+    def __init__(self, pattern, function, **kwargs):
+        self.re = self._generate_re(pattern, **kwargs)
         self.function = function
 
         # For preprocessing, find out which groups in the regex are unnamed.
@@ -84,9 +84,9 @@ class OneWayProcessor(metaclass=Cacher):
         self._unnamed_group_indices = tuple(unnamed)
 
     @classmethod
-    def _generate_re(cls, subpattern):
+    def _generate_re(cls, subpattern, **kwargs):
         """Trivial here. Overridden elsewhere in this module."""
-        return re.compile(subpattern, re.UNICODE)
+        return re.compile(subpattern, **kwargs)
 
     @classmethod
     def variant_class(cls, name='Custom', **kwargs):
@@ -215,8 +215,8 @@ class CollectiveProcessor(OneWayProcessor):
 class AutoRegisteringProcessor(CollectiveProcessor):
     """Adds automatic registration of processors on creation."""
 
-    def __init__(self, pattern, function):
-        super().__init__(pattern, function)
+    def __init__(self, pattern, function, **kwargs):
+        super().__init__(pattern, function, **kwargs)
         self.registry.append(self)
 
 
@@ -238,6 +238,10 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
     lead_in = '{{'
     lead_out = '}}'
 
+    # The ‘flags’ property is used by the class to generate its generic
+    # targeting regex and is therefore also the default for instances.
+    flags = 0
+
     escape = re.escape('\\')
 
     class OpenShorthandError(ValueError):
@@ -247,14 +251,16 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
         """Raised when otherwise valid markup has no registered processor."""
 
     @classmethod
-    def _generate_re(cls, subpattern):
+    def _generate_re(cls, subpattern, flags=None):
         """Override parent class.
 
         We rely on a targetfinder regex to keep this method, and user input,
         relatively simple.
 
         """
-        return re.compile(''.join((cls.lead_in, subpattern, cls.lead_out)))
+        flags = cls.flags if flags is None else flags
+        return re.compile(''.join((cls.lead_in, subpattern, cls.lead_out)),
+                          flags=flags)
 
     @classmethod
     @Cacher.cache_results()
@@ -283,7 +289,15 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
                      inactive_in=cls._escape(cls.lead_in),
                      active_out=cls._unescape(cls.lead_out),
                      inactive_out=cls._escape(cls.lead_out))
-        return re.compile(p)
+        return re.compile(p, flags=cls.flags)
+
+    @classmethod
+    @Cacher.cache_results()
+    def _active_delimiters(cls):
+        """Compile regex patterns useful for tracing errors."""
+        return tuple(map(lambda d: re.compile(cls._unescape(d),
+                                              flags=cls.flags),
+                         (cls.lead_in, cls.lead_out)))
 
     @classmethod
     @Cacher.cache_results()
@@ -303,14 +317,18 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
 
     @classmethod
     def collective_sub(cls, raw_string, safe=True, **kwargs):
-        """With optional precautions against sloppy markup."""
+        """With optional precautions against sloppy markup.
+
+        Globbed keyword arguments are passed on to _collective_sub_unsafe()
+        but are not actually used in this base class.
+
+        """
         cooked_string = cls._collective_sub_unsafe(raw_string, **kwargs)
 
         if safe:
-            delimiters = (cls.lead_in, cls.lead_out)
+            delimiters = cls._active_delimiters()
             for delimiter in delimiters:
-                if re.search(cls._unescape(delimiter), cooked_string,
-                             flags=kwargs.get('flags', 0)):
+                if delimiter.search(cooked_string):
                     b = 'Open (unbalanced) shorthand expression'
 
                     s = '{} resulting from "{}".'
@@ -321,7 +339,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
 
                     s = '{}: Found {} without a corresponding {}.'
                     opposite = delimiters[1 - delimiters.index(delimiter)]
-                    s = s.format(b, delimiter, opposite)
+                    s = s.format(b, delimiter.pattern, opposite.pattern)
                     raise cls.OpenShorthandError(s)
 
         return cooked_string
@@ -329,8 +347,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
     @classmethod
     def _collective_sub_unsafe(cls, string, **kwargs):
         """Depth-first search, using delimiters to control resolution order."""
-        target = re.search(cls._targetfinder(), string,
-                           flags=kwargs.get('flags', 0))
+        target = cls._targetfinder().search(string)
         if target:
             repl = super().collective_sub(target.group(), **kwargs)
             if repl == target.group():

@@ -84,7 +84,7 @@ class SignatureShorthand(_FunctionLikeDelimitedShorthand):
 
     """
 
-    def __init__(self, function):
+    def __init__(self, function, **kwargs):
         """Inspect the passed function to produce a regex pattern.
 
         A few things done here are unnecessary for this one-way version.
@@ -124,7 +124,7 @@ class SignatureShorthand(_FunctionLikeDelimitedShorthand):
         for name in argspec.args[n_unnamed:]:
             pattern += subpattern.format(name)
 
-        super().__init__(pattern, function)
+        super().__init__(pattern, function, **kwargs)
 
 
 class IndiscriminateShorthand(_FunctionLikeDelimitedShorthand):
@@ -135,9 +135,9 @@ class IndiscriminateShorthand(_FunctionLikeDelimitedShorthand):
 
     """
 
-    def __init__(self, function):
+    def __init__(self, function, **kwargs):
         """Accept any content, but lazily, and cushioned by delimiters."""
-        super().__init__('(.*?)', function)
+        super().__init__('(.*?)', function, **kwargs)
 
     def _process(self, parser, string, **kwargs):
         """Break down the single unnamed group in the regex."""
