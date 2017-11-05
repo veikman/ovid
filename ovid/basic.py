@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Basic tools for metamorphoses: arbitrary substring substitutions.
+"""Basic tools for metamorphoses: arbitrary substring substitutions.
 
 This module is not suitable for anything Python's re module can do alone.
 It's built for frameworks where nested shorthand expressions can produce
@@ -27,7 +27,7 @@ along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2015-2017 Viktor Eikman
 
-'''
+"""
 
 import re
 import logging
@@ -35,7 +35,7 @@ import functools
 
 
 class Cacher(type):
-    '''Metaclass for caching classes.'''
+    """Metaclass for caching classes."""
 
     def __new__(cls, *args, **kwargs):
         new = super().__new__(cls, *args, **kwargs)
@@ -44,11 +44,11 @@ class Cacher(type):
 
     @classmethod
     def cache_results(cls):
-        '''Generic memoization decorator. Ignores keyword arguments.
+        """Generic memoization decorator. Ignores keyword arguments.
 
         Results are cached in the class of the decorated method.
 
-        '''
+        """
         def decorator(obj):
 
             @functools.wraps(obj)
@@ -66,11 +66,11 @@ class Cacher(type):
 
 
 class OneWayProcessor(metaclass=Cacher):
-    '''A tool that replaces one substring pattern with function output.
+    """A tool that replaces one substring pattern with function output.
 
     This class wraps some "re" module functions in homonymous methods.
 
-    '''
+    """
 
     log = logging.getLogger('ovid')
 
@@ -85,19 +85,19 @@ class OneWayProcessor(metaclass=Cacher):
 
     @classmethod
     def _generate_re(cls, subpattern):
-        '''Trivial here. Overridden elsewhere in this module.'''
+        """Trivial here. Overridden elsewhere in this module."""
         return re.compile(subpattern, re.UNICODE)
 
     @classmethod
     def variant_class(cls, name='Custom', **kwargs):
-        '''Generate a fresh subclass.
+        """Generate a fresh subclass.
 
         This is useful for subclassing subclasses of OneWayProcessor.
         In particular, it's intended for customizing lead-in strings,
         separator strings etc., and to easily make subclasses with
         their own registries, none of which exist on OneWayProcessor.
 
-        '''
+        """
         return type(name, (cls,), kwargs)
 
     def sub(self, string, **kwargs):
@@ -107,13 +107,12 @@ class OneWayProcessor(metaclass=Cacher):
         return self._process(self.re.subn, string, **kwargs)
 
     def _process(self, parser, string, **kwargs):
-        '''Apply self.re.sub or self.re.subn as parsers.
+        """Apply self.re.sub or self.re.subn as parsers.
 
         Pass keywords arguments not supported by those parsers to
         self.function.
 
-        '''
-
+        """
         def repl(matchobject):
             unnamed, named = self._unique_groups(matchobject)
             kwargs.update(named)
@@ -122,7 +121,7 @@ class OneWayProcessor(metaclass=Cacher):
         return parser(repl, string, count=kwargs.pop('count', 0))
 
     def _unique_groups(self, matchobject):
-        '''Break down match objects for the processor function.
+        """Break down match objects for the processor function.
 
         With this stock version, the function passed to the constructor
         of the processor class will _not_ receive a match object, nor
@@ -144,7 +143,7 @@ class OneWayProcessor(metaclass=Cacher):
         def f(first_unnamed, second_unnamed, n='default value for n'):
             return 'cooked string'
 
-        '''
+        """
         # With 0-1 arguments group() returns a string, else a tuple.
         if self._unnamed_group_indices:
             unnamed = matchobject.group(*self._unnamed_group_indices)
@@ -162,12 +161,12 @@ class OneWayProcessor(metaclass=Cacher):
 
     @classmethod
     def _double_braces(cls, string):
-        '''Add Python string formatting escapes.
+        """Add Python string formatting escapes.
 
         This method is not used in this class itself, but is used by
         both producing and inspecting inheritors.
 
-        '''
+        """
         return re.sub('{', '{{', re.sub('}', '}}', string))
 
     def __repr__(self):
@@ -176,31 +175,32 @@ class OneWayProcessor(metaclass=Cacher):
 
 
 class CollectiveProcessor(OneWayProcessor):
-    '''Adds the ability to run multiple processors recursively.
+    """Adds the ability to run multiple processors recursively.
 
     The intended use case for this subclass is to do consistent project-
     wide text manipulation with multiple expressions, which may produce
     one another.
 
-    '''
+    """
+
     registry = list()
 
     @classmethod
     def variant_class(cls, new_registry=True, **kwargs):
-        '''Give the variant its own registry.'''
+        """Give the variant its own registry."""
         if new_registry:
             kwargs['registry'] = list()
         return super().variant_class(**kwargs)
 
     @classmethod
     def collective_sub(cls, string, **kwargs):
-        '''Apply all registered processors until none are applicable.
+        """Apply all registered processors until none are applicable.
 
         This is a risky way to do the job, dependent on the order in
         which the various processors are registered. A depth-first
         version is available in the DelimitedShorthand subclass.
 
-        '''
+        """
         for individual_processor in cls.registry:
             s, n = individual_processor.subn(string, **kwargs)
             if n and s != string:
@@ -213,7 +213,7 @@ class CollectiveProcessor(OneWayProcessor):
 
 
 class AutoRegisteringProcessor(CollectiveProcessor):
-    '''Adds automatic registration of processors on creation.'''
+    """Adds automatic registration of processors on creation."""
 
     def __init__(self, pattern, function):
         super().__init__(pattern, function)
@@ -221,19 +221,19 @@ class AutoRegisteringProcessor(CollectiveProcessor):
 
 
 class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
-    '''A bundle of conveniences.
+    """A bundle of conveniences.
 
     The choice of appropriate delimiters for subclasses is currently
     limited by regex conventions. Parentheses, for example, are not
     automatically escaped to generate regexes for searching for literal
     parentheses. For parentheses to be useful, they should be escaped
-    when supplied as arguments to variant_class().
+    or used in raw literals when supplied as arguments to variant_class().
 
     The choice of appropriate delimiters is also limited by the intended
     level of nesting. Using the same string as lead-in and lead-out will
     complicate nesting.
 
-    '''
+    """
 
     lead_in = '{{'
     lead_out = '}}'
@@ -241,27 +241,25 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
     escape = re.escape('\\')
 
     class OpenShorthandError(ValueError):
-        '''Raised when what appears to be markup is not properly delimited.'''
-        pass
+        """Raised when what appears to be markup is not properly delimited."""
 
     class UnknownShorthandError(ValueError):
-        '''Raised when otherwise valid markup has no registered processor.'''
-        pass
+        """Raised when otherwise valid markup has no registered processor."""
 
     @classmethod
     def _generate_re(cls, subpattern):
-        '''A significant override.
+        """Override parent class.
 
         We rely on a targetfinder regex to keep this method, and user input,
         relatively simple.
 
-        '''
+        """
         return re.compile(''.join((cls.lead_in, subpattern, cls.lead_out)))
 
     @classmethod
     @Cacher.cache_results()
     def _targetfinder(cls):
-        '''Generate a regex pattern useful for working with nesting.
+        """Compile a regex pattern useful for working with nesting.
 
         This pattern has to find the smallest group of characters
         inside a pair of active (i.e. not escaped) delimiters. To
@@ -277,7 +275,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
         single-character delimiters after passing their escape
         characters.
 
-        '''
+        """
         s = (r'{active_in}'
              r'((?:{inactive_in}|{inactive_out}|(?!{active_in}).)*?)'
              r'{active_out}')
@@ -290,7 +288,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
     @classmethod
     @Cacher.cache_results()
     def _escape(cls, delimiter):
-        '''Produce a regex pattern for a token in its escaped form.'''
+        """Produce a regex pattern for a token in its escaped form."""
         if cls.escape and delimiter:
             return ''.join((cls.escape + d for d in delimiter))
         return delimiter
@@ -298,14 +296,14 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
     @classmethod
     @Cacher.cache_results()
     def _unescape(cls, delimiter):
-        '''Produce a regex pattern for a token in its unescaped form.'''
+        """Produce a regex pattern for a token in its unescaped form."""
         if cls.escape and len(delimiter) == 1:
             return r'(?<!{}){}'.format(re.escape(cls.escape), delimiter)
         return delimiter
 
     @classmethod
     def collective_sub(cls, raw_string, safe=True, **kwargs):
-        '''With optional precautions against sloppy markup.'''
+        """With optional precautions against sloppy markup."""
         cooked_string = cls._collective_sub_unsafe(raw_string, **kwargs)
 
         if safe:
@@ -330,7 +328,7 @@ class DelimitedShorthand(AutoRegisteringProcessor, metaclass=Cacher):
 
     @classmethod
     def _collective_sub_unsafe(cls, string, **kwargs):
-        '''Depth-first search, using delimiters to control resolution order.'''
+        """Depth-first search, using delimiters to control resolution order."""
         target = re.search(cls._targetfinder(), string,
                            flags=kwargs.get('flags', 0))
         if target:

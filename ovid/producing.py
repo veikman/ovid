@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Add-ons to produce targets of subsequent metamorphosis.
+"""Add-ons to produce targets of subsequent metamorphosis.
 
 This can be used to generate specifications programmatically, for
 later treatment by the same processor in two different stages of a
@@ -26,7 +26,7 @@ along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2015-2017 Viktor Eikman
 
-'''
+"""
 
 import re
 
@@ -35,26 +35,24 @@ from . import inspecting
 
 
 class TwoWayProcessor(basic.OneWayProcessor):
-    '''The most basic two-way processor. Not very competent.
+    """The most basic two-way processor. Not very competent.
 
     You can subclass anything in ovid.basic with this and get its
     functionality, but it is a little limited. Nested catching groups,
     for example, are not supported. That is why the other modules in
     Ovid don't automatically integrate production capabilities.
 
-    '''
+    """
 
     class ProductionError(ValueError):
-        '''Raised to signal that requested output would be illegal.'''
-        pass
+        """Raised to signal that requested output would be illegal."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._prepare_production()
 
     def _prepare_production(self):
-        '''Prepare a number of strings needed for produce().'''
-
+        """Prepare a number of strings needed for produce()."""
         self._production_template = None
         self._production_groups_unnamed = list()
         self._production_groups_named = dict()
@@ -68,13 +66,12 @@ class TwoWayProcessor(basic.OneWayProcessor):
                                 self._production_groups_named))
 
     def _evert_groups(self):
-        '''Prepare to use content-catching regexes to produce content.
+        """Prepare to use content-catching regexes to produce content.
 
         This method populates the self._production_* variables declared
         in self._prepare_production(), for use in self.produce().
 
-        '''
-
+        """
         def compile_re(string):
             try:
                 return re.compile(string)
@@ -122,7 +119,7 @@ class TwoWayProcessor(basic.OneWayProcessor):
         collect(metapattern, named_group_collector)
 
     def produce(self, *unnamed, **named):
-        '''Present an appropriate target string.'''
+        """Present an appropriate target string."""
         try:
             unnamed = tuple(self._fill_unnamed(map(str, unnamed)))
             named = {k: v for k, v in self._fill_named(named)}
@@ -133,7 +130,7 @@ class TwoWayProcessor(basic.OneWayProcessor):
         return self._production_template.format(*unnamed, **named)
 
     def _fill_unnamed(self, contents):
-        '''Use zip to get the shorter sequence.'''
+        """Use zip to get the shorter sequence."""
         for i, stuff in enumerate(zip(contents,
                                       self._production_groups_unnamed)):
             content, regex = stuff
@@ -153,17 +150,17 @@ class TwoWayProcessor(basic.OneWayProcessor):
 
 
 class TwoWaySignatureShorthand(inspecting.SignatureShorthand, TwoWayProcessor):
-    '''Special treatment for SignatureShorthand.'''
+    """Special treatment for SignatureShorthand."""
 
     def _evert_groups(self):
-        '''An override of TwoWayProcessor.
+        """Override TwoWayProcessor.
 
         This override exists because initialization creates nested groups,
         which are not expected by the standard method. Here we can
         avoid dealing with them, using assumptions made simple by the
         predictability of the superclass.
 
-        '''
+        """
         for i in self._unnamed_group_indices:
             self._production_groups_unnamed.append(self._unnamed_pattern)
 
@@ -182,7 +179,7 @@ class TwoWaySignatureShorthand(inspecting.SignatureShorthand, TwoWayProcessor):
         self._production_template = ''.join(elements)
 
     def produce(self, *unnamed, **named):
-        '''An override to respect absent named groups.'''
+        """Override parent class to respect absent named groups."""
         named = sorted(named.items())
         for name, content in named:
             regex = self._production_groups_named[name]
@@ -196,22 +193,22 @@ class TwoWaySignatureShorthand(inspecting.SignatureShorthand, TwoWayProcessor):
         return super().produce(*unnamed, named=named)
 
     def _fill_named(self, named):
-        '''Another override of TwoWayProcessor.
+        """Another override of TwoWayProcessor.
 
         Simplified to reflect the earlier treatment of named groups
         in produce().
 
-        '''
+        """
         return named.items()
 
     @classmethod
     def _separate(cls, *args, ignore_empty=False):
-        '''Separate arguments with an unescaped class-specific separator.
+        """Separate arguments with an unescaped class-specific separator.
 
         Escape curvilinear braces in the separator, for use with a round
         of str.format(), e.g. in the superclass's produce() method.
 
-        '''
+        """
         if ignore_empty:
             args = filter(bool, args)
         return cls._double_braces(cls.separator).join(args)

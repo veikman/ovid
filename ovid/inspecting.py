@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''String metamorposis via tokens derived from function signatures.
+"""String metamorposis via tokens derived from function signatures.
 
 ------
 
@@ -20,7 +20,7 @@ along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright 2015-2017 Viktor Eikman
 
-'''
+"""
 
 
 import inspect
@@ -30,7 +30,7 @@ from . import basic
 
 
 class AutoEscapingCacher(basic.Cacher):
-    '''A metaclass for classes that need separators and operators.'''
+    """A metaclass for classes that need separators and operators."""
 
     def __new__(cls, *args, **kwargs):
         new = super().__new__(cls, *args, **kwargs)
@@ -41,7 +41,7 @@ class AutoEscapingCacher(basic.Cacher):
 
 class _FunctionLikeDelimitedShorthand(basic.DelimitedShorthand,
                                       metaclass=AutoEscapingCacher):
-    '''Base class for further conveniences.'''
+    """Base class for further conveniences."""
 
     separator = '|'
     assignment_operator = '='
@@ -50,7 +50,7 @@ class _FunctionLikeDelimitedShorthand(basic.DelimitedShorthand,
 
     @classmethod
     def swallow(cls, function):
-        '''A decorator for use on markup functions.
+        """A decorator for use on markup functions.
 
         Used alone, what this does is to register the decorated
         function as markup and replace the decorated function in the
@@ -59,37 +59,38 @@ class _FunctionLikeDelimitedShorthand(basic.DelimitedShorthand,
         This is useful mainly for two-way (producing) markup
         processors, which need to be individually accessible.
 
-        '''
+        """
         return cls(function)
 
     @classmethod
     def register(cls, function):
-        '''A decorator for use on markup functions.
+        """A decorator for use on markup functions.
 
         The effect of this is the same as transform(), except that
         the function is left intact in the namespace, and the markup
         ends up less accessible in the registry of the class.
 
-        '''
+        """
         cls.swallow(function)
         return function
 
 
 class SignatureShorthand(_FunctionLikeDelimitedShorthand):
-    '''Markup that looks like a function call.
+    """Markup that looks like a function call.
 
     This is based on automatic inspection of the function, which is
     not fully featured. Variable numbers of arguments, for example,
     are not handled.
 
-    '''
+    """
 
     def __init__(self, function):
-        '''A few things done here are unnecessary for this one-way version.
+        """Inspect the passed function to produce a regex pattern.
 
+        A few things done here are unnecessary for this one-way version.
         They're intended for the producing subclass.
 
-        '''
+        """
         argspec = inspect.getfullargspec(function)
         n_named = len(argspec.defaults if argspec.defaults else ())
         n_unnamed = len(argspec.args) - n_named
@@ -127,20 +128,19 @@ class SignatureShorthand(_FunctionLikeDelimitedShorthand):
 
 
 class IndiscriminateShorthand(_FunctionLikeDelimitedShorthand):
-    '''Hit anything in delimiters.
+    """Hit anything in delimiters.
 
     Very similar to SignatureShorthand, but for use with a generic
     variadic master function: a switchboard that handles all markup.
 
-    '''
+    """
 
     def __init__(self, function):
-        '''Accept any content, but lazily, and cushioned by delimiters.'''
+        """Accept any content, but lazily, and cushioned by delimiters."""
         super().__init__('(.*?)', function)
 
     def _process(self, parser, string, **kwargs):
-        '''Break down the single unnamed group in the regex.'''
-
+        """Break down the single unnamed group in the regex."""
         def repl(matchobject):
             groups, _ = self._unique_groups(matchobject)
             args, named = self._tokenize(groups[0])

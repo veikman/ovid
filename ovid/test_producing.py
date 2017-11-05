@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Unit tests for the producing module.'''
+"""Unit tests for the producing module."""
 
 
 import unittest
@@ -11,7 +11,7 @@ from . import producing
 
 class SubstitutionElements(unittest.TestCase):
     def _forwards(self, regex, *args, **kwargs):
-        '''Examine a generated substitution function signature.'''
+        """Examine a generated substitution function signature."""
         m = mock.Mock()
 
         def f(*args, **kwargs):
@@ -23,7 +23,7 @@ class SubstitutionElements(unittest.TestCase):
         m.assert_called_once_with(*args, **kwargs)
 
     def _backwards(self, regex, reference_output, *args, **kwargs):
-        '''Examine the matchable product of reverse operation.'''
+        """Examine the matchable product of reverse operation."""
         processor = producing.TwoWayProcessor(regex, lambda: None)
         self.assertEqual(reference_output, processor.produce(*args, **kwargs))
 

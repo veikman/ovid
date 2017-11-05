@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Unit tests for the inspecting module.'''
+"""Unit tests for the inspecting module."""
 
 
 import logging
@@ -94,6 +94,13 @@ class RecursiveCollective(unittest.TestCase):
                     (('d',), {}),
                     (('c', '2'), {'kw': '3'}))
 
+    def test_nesting_multiline(self):
+        self._match('{{d{{e}}}}', 'y',
+                    (('e',), {}),
+                    (('b',), {'kw': '1'}),
+                    (('d',), {}),
+                    (('c', '2'), {'kw': '3'}))
+
     @test_basic.suppress(logging.WARNING)
     def test_nesting_invalid(self):
         self._match('{{a{{c}}}}', 'x',
@@ -156,7 +163,7 @@ class SignatureShorthandConstruction(unittest.TestCase):
 
 
 class Tail(unittest.TestCase):
-    '''Not to be confused with test_basic.CustomDelimiters.'''
+    """Not to be confused with test_basic.CustomDelimiters."""
 
     class SingleCharacterDelimiters(inspecting.SignatureShorthand):
         registry = list()
@@ -178,6 +185,14 @@ class Tail(unittest.TestCase):
     def test_inert(self):
         self.assertEqual(self.a1.collective_sub('{a|x}bc'), 'xbc')
         self.assertEqual(self.a2.collective_sub('{{a|x}}bc'), 'xbc')
+
+    @test_basic.suppress(logging.ERROR)
+    def test_multiline(self):
+        exc = self.SingleCharacterDelimiters.OpenShorthandError
+        with self.assertRaises(exc):
+            self.assertEqual(self.a1.collective_sub('{a|x\ny}bc'), 'x\nybc')
+        with self.assertRaises(exc):
+            self.assertEqual(self.a2.collective_sub('{{a|x\ny}}bc'), 'x\nybc')
 
 
 class RegisteringDecorator(unittest.TestCase):

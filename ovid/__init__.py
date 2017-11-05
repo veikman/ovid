@@ -1,4 +1,4 @@
-'''Ovid: tools for text metamorphosis.'''
+"""Ovid: tools for text metamorphosis."""
 
 import ovid.basic
 import ovid.inspecting

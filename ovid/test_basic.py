@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''Unit tests for the basic module.'''
+"""Unit tests for the basic module."""
 
 
 import collections
@@ -11,11 +11,11 @@ from . import basic
 
 
 def suppress(logging_level):
-    '''Temporarily silence logging up to the named level.
+    """Temporarily silence logging up to the named level.
 
     This function returns a function-altering function.
 
-    '''
+    """
     def decorator(method):
         def replacement(instance, *args, **kwargs):
             logging.disable(logging_level)
@@ -28,6 +28,28 @@ def suppress(logging_level):
 class Basic(unittest.TestCase):
     def test_elementary(self):
         self.assertEqual(basic.OneWayProcessor('a', lambda: 'b').sub('a'), 'b')
+
+    def test_multiline_single_blank(self):
+        pattern = '''a
+
+        a'''
+        sample = '''Aa
+
+        aA'''
+        processor = basic.OneWayProcessor(pattern, lambda: 'b')
+        self.assertEqual(processor.sub(sample), 'AbA')
+
+    def test_multiline_double_blank(self):
+        pattern = '''a
+
+
+        a'''
+        sample = '''Aa
+
+
+        aA'''
+        processor = basic.OneWayProcessor(pattern, lambda: 'b')
+        self.assertEqual(processor.sub(sample), 'AbA')
 
     def test_operation_on_unnamed_group(self):
         self.assertEqual(basic.OneWayProcessor('(.)',
@@ -125,25 +147,34 @@ class Automatic(unittest.TestCase):
 
 
 class CustomDelimiters(unittest.TestCase):
-    class SingleCharacter(basic.DelimitedShorthand):
-        registry = list()
-        lead_in = '{'
-        lead_out = '}'
-
-    class Identical(basic.DelimitedShorthand):
-        registry = list()
-        lead_in = '%'
-        lead_out = '%'
 
     def test_single_character(self):
-        p = CustomDelimiters.SingleCharacter('a', lambda: 'x')
+        class SingleCharacter(basic.DelimitedShorthand):
+            registry = list()
+            lead_in = '{'
+            lead_out = '}'
+
+        # A single-character pattern with single-character delimitation.
+        p = SingleCharacter('a', lambda: 'x')
         self.assertEqual(p.sub('abc'), 'abc')
         self.assertEqual(p.sub('{a}bc'), 'xbc')
         self.assertEqual(p.sub(r'{a}\}bc'), r'x\}bc')
         self.assertEqual(p.sub(r'\{{a}bc'), r'\{xbc')
 
+        # A larger, multi-line pattern with single-character delimitation.
+        p = SingleCharacter('a\na', lambda: 'x')
+        self.assertEqual(p.sub('abc'), 'abc')
+        self.assertEqual(p.sub('{a\na}bc'), 'xbc')
+        self.assertEqual(p.sub('{a\na}\}bc'), r'x\}bc')
+        self.assertEqual(p.sub('\{{a\na}bc'), r'\{xbc')
+
     def test_identical(self):
-        p = CustomDelimiters.Identical('a', lambda: 'x')
+        class Identical(basic.DelimitedShorthand):
+            registry = list()
+            lead_in = '%'
+            lead_out = '%'
+
+        p = Identical('a', lambda: 'x')
         self.assertEqual(p.sub('abc'), 'abc')
         self.assertEqual(p.sub('%a%bc'), 'xbc')
         self.assertEqual(p.sub(r'\%a\%bc'), r'\%a\%bc')
