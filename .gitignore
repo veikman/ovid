@@ -1,6 +1,8 @@
 .*
 __pycache__/
 *.tar.gz
+build
 dist
 deb_dist
+*egg-info*
 MANIFEST
