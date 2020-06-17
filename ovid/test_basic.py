@@ -247,6 +247,8 @@ class DynamicSubclassing(unittest.TestCase):
 
 
 class Passthrough(unittest.TestCase):
+    """The passing of arguments to a processor function via sub()."""
+
     def test_single(self):
         deque = collections.deque()
 
@@ -255,7 +257,7 @@ class Passthrough(unittest.TestCase):
             deque.append(passthrough)
             return 'c'
 
-        processor = basic.OneWayProcessor('(.*)', f)
+        processor = basic.OneWayProcessor('(.+)', f)
         ret = processor.sub('a', passthrough='b')
 
         self.assertEqual(ret, 'c')
@@ -284,7 +286,7 @@ class Passthrough(unittest.TestCase):
             deque.append(kwargs)
             return '_'
 
-        processor = basic.OneWayProcessor('(.*)', f)
+        processor = basic.OneWayProcessor('(.+)', f)
         ret = processor.sub('a', b0='b', b1='B')
 
         self.assertEqual(ret, '_')
@@ -311,7 +313,7 @@ class Passthrough(unittest.TestCase):
 
         basic.AutoRegisteringProcessor.registry.clear()
         basic.AutoRegisteringProcessor('(a)', f0)
-        basic.AutoRegisteringProcessor('(.*)', f1)
+        basic.AutoRegisteringProcessor('(.+)', f1)
 
         ret = basic.AutoRegisteringProcessor.collective_sub('b')
 
