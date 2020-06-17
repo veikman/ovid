@@ -24,8 +24,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with Ovid.  If not, see <http://www.gnu.org/licenses/>.
 
-Copyright 2015-2017 Viktor Eikman
-
 """
 
 import re
@@ -75,7 +73,7 @@ class TwoWayProcessor(basic.OneWayProcessor):
         def compile_re(string):
             try:
                 return re.compile(string)
-            except:
+            except Exception:
                 s = 'Invalid proposed regex group "{}".'
                 self.log.error(s.format(string))
                 s = 'Could not evert {}.'

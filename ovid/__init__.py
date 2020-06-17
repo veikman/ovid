@@ -1,7 +1,7 @@
 """Ovid: tools for text metamorphosis."""
 
-import ovid.basic
-import ovid.inspecting
-import ovid.producing
+from ovid import basic
+from ovid import inspecting
+from ovid import producing
 
-__all__ = [ovid.basic, ovid.inspecting, ovid.producing]
+__all__ = ('basic', 'inspecting', 'producing')

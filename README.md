@@ -42,7 +42,7 @@ through a decorator.
     ...     bark_states = ('mostly stripped', 'brown', 'gray')
     ...     repl = 'The bark is {}.'.format(random.choice(bark_states))
     ...     return repl
-    ... 
+    ...
     >>> sample = 'A stick. {{wood}} {{melee||+1|defense=-1}}'
     >>> ovid.inspecting.SignatureShorthand.collective_sub(sample)
     'A stick. The bark is gray. ±0 to hit with +1 damage. -1 to be hit in melee.'
@@ -75,5 +75,7 @@ contextual information, which enables these functions to map internal
 references in addition to replacing substrings.
 
 ### Legal
+
+Copyright 2015–2020 Viktor Eikman
 
 Ovid is licensed as detailed in the accompanying file COPYING.txt.
