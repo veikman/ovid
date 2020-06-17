@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
+"""Packaging metadata."""
 
 from setuptools import setup
 
 setup(
-    name='Ovid',
+    name='ovid',
     version='0.5.0',
     description='Text metamorphosis toolbox',
     requires=[],
     author='Viktor Eikman',
     author_email='viktor.eikman@gmail.com',
-    url='viktor.eikman.se',
+    url='https://github.com/veikman/ovid',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',

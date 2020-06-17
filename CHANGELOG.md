@@ -6,5 +6,6 @@ version 0.5.0.
 ## [Unreleased]
 ### Changed
 - Switched from distutils.core to setuptools to enable wheel distribution.
+- Changed distribution name from Ovid to ovid.
 
 [Unreleased]: https://github.com/veikman/ovid/compare/ovid-v0.5.0...HEAD
