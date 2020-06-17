@@ -4,5 +4,7 @@ __pycache__/
 build
 dist
 deb_dist
+*.whl
+*.deb
 *egg-info*
 MANIFEST
