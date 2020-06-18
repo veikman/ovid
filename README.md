@@ -29,19 +29,18 @@ compared to functions that need to treat complete match objects.
 A slightly more meaningful example follows, using a different Ovid class,
 through a decorator.
 
+    >>> _BARK_STATES = ('mostly stripped', 'brown', 'gray')
+    >>>
     >>> @ovid.inspecting.SignatureShorthand.register
     >>> def melee(to_hit, damage, defense=''):
-    ...     repl = '{} to hit with {} damage.'
-    ...     repl = repl.format(to_hit or '±0', damage or '±0')
+    ...     repl = f'{to_hit or "±0"} to hit with {damage or "±0"} damage.'
     ...     if defense:
-    ...         repl += ' {} to be hit in melee.'.format(defense)
+    ...         repl += f' {defense} to be hit in melee.'
     ...     return repl
     ...
     >>> @ovid.inspecting.SignatureShorthand.register
     >>> def wood():
-    ...     bark_states = ('mostly stripped', 'brown', 'gray')
-    ...     repl = 'The bark is {}.'.format(random.choice(bark_states))
-    ...     return repl
+    ...     return f'The bark is {random.choice(_BARK_STATES)}.'
     ...
     >>> sample = 'A stick. {{wood}} {{melee||+1|defense=-1}}'
     >>> ovid.inspecting.SignatureShorthand.collective_sub(sample)
