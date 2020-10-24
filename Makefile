@@ -22,4 +22,4 @@ install_debian: test
 	sudo python3 setup.py --command-packages=stdeb.command install_deb
 
 clean:
-	rm -rf dist build deb_dist MANIFEST *.tar.* *.deb
+	rm -rf dist build deb_dist *.egg-info MANIFEST *.tar.* *.deb *.whl
