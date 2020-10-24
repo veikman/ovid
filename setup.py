@@ -3,9 +3,11 @@
 
 from setuptools import setup
 
+from ovid import __version__
+
 setup(
     name='ovid',
-    version='0.5.0',
+    version=__version__,
     description='Text metamorphosis toolbox',
     requires=[],
     author='Viktor Eikman',
