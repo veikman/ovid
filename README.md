@@ -75,6 +75,6 @@ references in addition to replacing substrings.
 
 ### Legal
 
-Copyright 2015–2020 Viktor Eikman
+Copyright 2015–2021 Viktor Eikman
 
 Ovid is licensed as detailed in the accompanying file COPYING.txt.
