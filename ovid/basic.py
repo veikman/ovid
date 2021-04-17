@@ -36,13 +36,16 @@ class Cacher(type):
     """Metaclass for caching classes."""
 
     def __new__(cls, *args, **kwargs):
+        """Compose a memoization cache onto each new class."""
         new = super().__new__(cls, *args, **kwargs)
         new._cache = dict()
         return new
 
     @classmethod
     def cache_results(cls):
-        """Generic memoization decorator. Ignores keyword arguments.
+        """Prepare to memoize.
+
+        A generic memoization decorator that ignores keyword arguments.
 
         Results are cached in the class of the decorated method.
 
@@ -99,9 +102,11 @@ class OneWayProcessor(metaclass=Cacher):
         return type(name, (cls,), kwargs)
 
     def sub(self, string, **kwargs):
+        """Apply as with re.sub."""
         return self._process(self.re.sub, string, **kwargs)
 
     def subn(self, string, **kwargs):
+        """Apply as with re.subn."""
         return self._process(self.re.subn, string, **kwargs)
 
     def _process(self, parser, string, **kwargs):
@@ -133,7 +138,6 @@ class OneWayProcessor(metaclass=Cacher):
         This is unlike the behaviour of Python's re module.
 
         Example:
-
         A match on the pattern '(a)(?P<n>b)(c)' will lead to a function
         call resembling f('a', 'c', n='b') and the function, here called
         f, should therefore have a definition similar to this one:
@@ -168,8 +172,8 @@ class OneWayProcessor(metaclass=Cacher):
         return re.sub('{', '{{', re.sub('}', '}}', string))
 
     def __repr__(self):
-        s = '<Ovid processor for {}>'
-        return s.format(self.function.__name__)
+        """Provide a default string representation for debuggers."""
+        return f'<Ovid processor for {self.function.__name__}>'
 
 
 class CollectiveProcessor(OneWayProcessor):

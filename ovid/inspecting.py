@@ -31,6 +31,7 @@ class AutoEscapingCacher(basic.Cacher):
     """A metaclass for classes that need separators and operators."""
 
     def __new__(cls, *args, **kwargs):
+        """Refine class-level constants."""
         new = super().__new__(cls, *args, **kwargs)
         new._separator_escaped = re.escape(new.separator)
         new._assignment_operator_escaped = re.escape(new.assignment_operator)
@@ -48,7 +49,7 @@ class _FunctionLikeDelimitedShorthand(basic.DelimitedShorthand,
 
     @classmethod
     def swallow(cls, function):
-        """A decorator for use on markup functions.
+        """Act as a decorator for use on markup functions.
 
         Used alone, what this does is to register the decorated
         function as markup and replace the decorated function in the
@@ -62,7 +63,7 @@ class _FunctionLikeDelimitedShorthand(basic.DelimitedShorthand,
 
     @classmethod
     def register(cls, function):
-        """A decorator for use on markup functions.
+        """Act as a decorator for use on markup functions.
 
         The effect of this is the same as transform(), except that
         the function is left intact in the namespace, and the markup

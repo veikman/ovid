@@ -121,8 +121,8 @@ class TwoWayProcessor(basic.OneWayProcessor):
         try:
             unnamed = tuple(self._fill_unnamed(map(str, unnamed)))
             named = {k: v for k, v in self._fill_named(named)}
-        except:
-            self.log.error('Cannot reverse {}.'.format(repr(self)))
+        except Exception:
+            self.log.error(f'Cannot reverse {self!r}.')
             raise
 
         return self._production_template.format(*unnamed, **named)
