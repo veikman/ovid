@@ -101,4 +101,4 @@ addition to replacing substrings.
 
 Copyright 2015–2021 Viktor Eikman
 
-Ovid is licensed as detailed in the accompanying file COPYING.txt.
+Ovid is licensed as detailed in the accompanying file LICENSE.
