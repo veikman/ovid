@@ -5,10 +5,14 @@ version 0.5.0.
 
 ## [Unreleased]
 ### Changed
-- Switched from distutils.core to setuptools to enable wheel distribution.
-- Changed distribution name from Ovid to ovid.
+- Switched from `distutils.core` to `setuptools` (via PyPA `build`) to enable
+  wheel distribution.
+- Changed distribution name from `Ovid` to `ovid`.
 
 ### Added
-- Python Wheel packaging routine.
+- Flake8 configuration via `pyproject.toml`, hence via `pflake8`.
+
+### Fixed
+- Linting.
 
 [Unreleased]: https://github.com/veikman/ovid/compare/ovid-v0.5.0...HEAD
