@@ -1,371 +1,405 @@
 # -*- coding: utf-8 -*-
 """Unit tests for the basic module."""
 
-
 import collections
 import logging
 import re
-import unittest
 
-from . import basic
+from pytest import raises
+from pytest import fixture
+
+from ovid.basic import OneWayProcessor as OWProc
+from ovid.basic import CollectiveProcessor as CProc
+from ovid.basic import DelimitedShorthand as Delimited
+from ovid.basic import AutoRegisteringProcessor as AutoProc
 
 
-def suppress(logging_level):
-    """Temporarily silence logging up to the named level.
+#############
+# NON-TESTS #
+#############
 
-    This function returns a function-altering function.
+@fixture
+def cleared():
+    """Clear caches and provide a new subclass."""
+    CProc.registry.clear()
+    OWProc._cache.clear()
+    Delimited._cache.clear()
+
+    class SubClass(Delimited):
+        pass
+    SubClass._cache.clear()
+
+    yield SubClass
+
+
+@fixture
+def delimited():
+    """Provide a semi-realistic set of processors.
+
+    Return a function for their collective application, as a convenience.
 
     """
-    def decorator(method):
-        def replacement(instance, *args, **kwargs):
-            logging.disable(logging_level)
-            method(instance, *args, **kwargs)
-            logging.disable(logging.NOTSET)
-        return replacement
-    return decorator
+    Delimited.registry.clear()
+    Delimited._cache.clear()
+    Delimited('(b)', lambda *_: 'y')
+    Delimited('(c)', lambda *_: '{{b}}')
+    Delimited('(d)', lambda *_: '{{c}}{{c}}')
+
+    yield Delimited.collective_sub
 
 
-class Basic(unittest.TestCase):
-    def test_elementary(self):
-        self.assertEqual(basic.OneWayProcessor('a', lambda: 'b').sub('a'), 'b')
+###############
+# BASIC TESTS #
+###############
 
-    def test_multiline_single_blank(self):
-        pattern = '''a
-
-        a'''
-        sample = '''Aa
-
-        aA'''
-        processor = basic.OneWayProcessor(pattern, lambda: 'b')
-        self.assertEqual(processor.sub(sample), 'AbA')
-
-    def test_multiline_double_blank(self):
-        pattern = '''a
+def test_elementary():
+    assert OWProc('a', lambda: 'b').sub('a') == 'b'
 
 
-        a'''
-        sample = '''Aa
+def test_multiline_single_blank():
+    pattern = '''a
+
+    a'''
+    sample = '''Aa
+
+    aA'''
+    processor = OWProc(pattern, lambda: 'b')
+    assert processor.sub(sample) == 'AbA'
 
 
-        aA'''
-        processor = basic.OneWayProcessor(pattern, lambda: 'b')
-        self.assertEqual(processor.sub(sample), 'AbA')
-
-    def test_operation_on_unnamed_group(self):
-        self.assertEqual(basic.OneWayProcessor('(.)',
-                                               lambda v: 2 * v).sub('a'),
-                         'aa')
-
-    def test_collective(self):
-        cls = basic.AutoRegisteringProcessor
-        cls.registry.clear()
-        cls('a', lambda: 'A')
-        cls('b', lambda: 'B')
-
-        ret = cls.collective_sub('ab')
-        self.assertEqual(ret, 'AB')
-
-        ret = cls.collective_sub('bab')
-        self.assertEqual(ret, 'BAB')
-
-        ret = cls.collective_sub('c')
-        self.assertEqual(ret, 'c')
-
-        # Tempt infinite recursion. 'C' will match '.'.
-        cls('.', lambda: 'C')
-
-        ret = cls.collective_sub('c')
-        self.assertEqual(ret, 'C')
+def test_multiline_double_blank():
+    pattern = '''a
 
 
-class Automatic(unittest.TestCase):
-    @staticmethod
-    def setUpClass():
-        basic.DelimitedShorthand.registry.clear()
-        basic.DelimitedShorthand('(b)', lambda *_: 'y')
-        basic.DelimitedShorthand('(c)', lambda *_: '{{b}}')
-        basic.DelimitedShorthand('(d)', lambda *_: '{{c}}{{c}}')
-
-    def _match(self, text_in, text_out):
-        self.assertEqual(basic.DelimitedShorthand.collective_sub(text_in),
-                         text_out)
-
-    def test_clean_empty(self):
-        self._match('', '')
-
-    def test_clean_nonempty(self):
-        self._match('a', 'a')
-
-    def test_no_markup_tokens(self):
-        self._match('b', 'b')
-
-    @suppress(logging.ERROR)
-    def test_leftover_closer(self):
-        with self.assertRaises(basic.DelimitedShorthand.OpenShorthandError):
-            self._match('b}}', None)
-
-    @suppress(logging.ERROR)
-    def test_broken_opener(self):
-        with self.assertRaises(basic.DelimitedShorthand.OpenShorthandError):
-            self._match('{b}}', None)
-
-    @suppress(logging.ERROR)
-    def test_leftover_opener(self):
-        with self.assertRaises(basic.DelimitedShorthand.OpenShorthandError):
-            self._match('{{b', '')
-
-    @suppress(logging.ERROR)
-    def test_unknown_shorthand_empty(self):
-        with self.assertRaises(basic.DelimitedShorthand.UnknownShorthandError):
-            self._match('{{}}', '')
-
-    @suppress(logging.ERROR)
-    def test_unknown_shorthand_nonempty(self):
-        with self.assertRaises(basic.DelimitedShorthand.UnknownShorthandError):
-            self._match('{{a}}', '')
-
-    def test_match_solo(self):
-        self._match('{{b}}', 'y')
-
-    def test_single_match_context(self):
-        self._match('a{{b}}a', 'aya')
-
-    def test_double_match_context(self):
-        self._match('a{{b}}{{b}}a', 'ayya')
-
-    def test_separating_context(self):
-        self._match('a{{b}}a{{b}}a', 'ayaya')
-
-    def test_recursion(self):
-        self._match('a{{c}}a', 'aya')
-
-    def test_explosion(self):
-        self._match('a{{d}}a', 'ayya')
-
-    def test_escape(self):
-        self._match(r'a\{\{c\}\}a', r'a\{\{c\}\}a')
+    a'''
+    sample = '''Aa
 
 
-class CustomDelimiters(unittest.TestCase):
-
-    def test_single_character(self):
-        class SingleCharacter(basic.DelimitedShorthand):
-            registry = list()
-            lead_in = '{'
-            lead_out = '}'
-
-        # A single-character pattern with single-character delimitation.
-        p = SingleCharacter('a', lambda: 'x')
-        self.assertEqual(p.sub('abc'), 'abc')
-        self.assertEqual(p.sub('{a}bc'), 'xbc')
-        self.assertEqual(p.sub(r'{a}\}bc'), r'x\}bc')
-        self.assertEqual(p.sub(r'\{{a}bc'), r'\{xbc')
-
-        # A larger, multi-line pattern with single-character delimitation.
-        p = SingleCharacter('a\na', lambda: 'x')
-        self.assertEqual(p.sub('abc'), 'abc')
-        self.assertEqual(p.sub('{a\na}bc'), 'xbc')
-        self.assertEqual(p.sub('{a\na}\}bc'), r'x\}bc')
-        self.assertEqual(p.sub('\{{a\na}bc'), r'\{xbc')
-
-    def test_identical(self):
-        class Identical(basic.DelimitedShorthand):
-            registry = list()
-            lead_in = '%'
-            lead_out = '%'
-
-        p = Identical('a', lambda: 'x')
-        self.assertEqual(p.sub('abc'), 'abc')
-        self.assertEqual(p.sub('%a%bc'), 'xbc')
-        self.assertEqual(p.sub(r'\%a\%bc'), r'\%a\%bc')
-        self.assertEqual(p.sub('\%a\%bc'), '\%a\%bc')
+    aA'''
+    processor = OWProc(pattern, lambda: 'b')
+    assert processor.sub(sample) == 'AbA'
 
 
-class Caching(unittest.TestCase):
-    class SubClass(basic.DelimitedShorthand):
+def test_operation_on_unnamed_group():
+    assert OWProc('(.)', lambda v: 2 * v).sub('a') == 'aa'
+
+
+def test_collective_simple():
+    cls = AutoProc
+    cls.registry.clear()
+    cls('a', lambda: 'A')
+    cls('b', lambda: 'B')
+
+    assert cls.collective_sub('ab') == 'AB'
+    assert cls.collective_sub('bab') == 'BAB'
+    assert cls.collective_sub('c') == 'c'
+
+    # Tempt infinite recursion. 'C' will match '.'.
+    cls('.', lambda: 'C')
+
+    assert cls.collective_sub('c') == 'C'
+
+
+###############################
+# TESTS OF DelimitedShorthand #
+###############################
+
+
+def test_clean_empty(delimited):
+    assert delimited('') == ''
+
+
+def test_clean_nonempty(delimited):
+    assert delimited('a') == 'a'
+
+
+def test_no_markup_tokens(delimited):
+    assert delimited('b') == 'b'
+
+
+def test_leftover_closer(delimited, caplog):
+    caplog.set_level(logging.ERROR)
+    with raises(Delimited.OpenShorthandError):
+        delimited('b}}')
+
+
+def test_broken_opener(delimited, caplog):
+    caplog.set_level(logging.ERROR)
+    with raises(Delimited.OpenShorthandError):
+        delimited('{b}}')
+
+
+def test_leftover_opener(delimited, caplog):
+    caplog.set_level(logging.ERROR)
+    with raises(Delimited.OpenShorthandError):
+        delimited('{{b')
+
+
+def test_unknown_shorthand_empty(delimited, caplog):
+    caplog.set_level(logging.ERROR)
+    with raises(Delimited.UnknownShorthandError):
+        delimited('{{}}')
+
+
+def test_unknown_shorthand_nonempty(delimited, caplog):
+    caplog.set_level(logging.ERROR)
+    with raises(Delimited.UnknownShorthandError):
+        delimited('{{a}}')
+
+
+def test_match_solo(delimited):
+    assert delimited('{{b}}') == 'y'
+
+
+def test_single_match_context(delimited):
+    assert delimited('a{{b}}a') == 'aya'
+
+
+def test_double_match_context(delimited):
+    assert delimited('a{{b}}{{b}}a') == 'ayya'
+
+
+def test_separating_context(delimited):
+    assert delimited('a{{b}}a{{b}}a') == 'ayaya'
+
+
+def test_recursion(delimited):
+    assert delimited('a{{c}}a') == 'aya'
+
+
+def test_explosion(delimited):
+    assert delimited('a{{d}}a') == 'ayya'
+
+
+def test_escape(delimited):
+    assert delimited(r'a\{\{c\}\}a') == r'a\{\{c\}\}a'
+
+
+##############################
+# TESTS OF CUSTOM DELIMITERS #
+##############################
+
+def test_single_character():
+    class SingleCharacter(Delimited):
+        registry = list()
+        lead_in = '{'
+        lead_out = '}'
+
+    # A single-character pattern with single-character delimitation.
+    p = SingleCharacter('a', lambda: 'x')
+    assert p.sub('abc') == 'abc'
+    assert p.sub('{a}bc') == 'xbc'
+    assert p.sub(r'{a}\}bc') == r'x\}bc'
+    assert p.sub(r'\{{a}bc') == r'\{xbc'
+
+    # A larger, multi-line pattern with single-character delimitation.
+    p = SingleCharacter('a\na', lambda: 'x')
+    assert p.sub('abc') == 'abc'
+    assert p.sub('{a\na}bc') == 'xbc'
+    assert p.sub('{a\na}\\}bc') == r'x\}bc'
+    assert p.sub('\\{{a\na}bc') == r'\{xbc'
+
+
+def test_identical():
+    class Identical(Delimited):
+        registry = list()
+        lead_in = '%'
+        lead_out = '%'
+
+    p = Identical('a', lambda: 'x')
+    assert p.sub('abc') == 'abc'
+    assert p.sub('%a%bc') == 'xbc'
+    assert p.sub(r'\%a\%bc') == r'\%a\%bc'
+    assert p.sub(r'\%a\%bc') == r'\%a\%bc'
+
+
+####################
+# TESTS OF CACHING #
+####################
+
+
+def test_new_with_metaclassing(cleared):
+    assert id(OWProc._cache) != id(Delimited._cache)
+    assert OWProc._cache is not Delimited._cache
+
+
+def test_new_with_subclassing(cleared):
+    assert id(OWProc._cache) != id(cleared._cache)
+    assert OWProc._cache is not cleared._cache
+
+
+def test_shared_with_instantiation(cleared):
+    a, b = cleared('a', None), cleared('b', None)
+
+    assert id(a._cache) == id(b._cache)
+    assert a._cache is b._cache
+
+
+def test_use(cleared):
+    def f():
+        return 'r'
+
+    assert not cleared._cache
+    cleared('p', f)
+    ret = cleared.collective_sub('a{{p}}')
+    assert ret == 'ar'
+    assert cleared._cache
+
+
+################################
+# TESTS OF DYNAMIC SUBCLASSING #
+################################
+
+def test_oneway():
+    c = OWProc.variant_class()
+    assert str(c) == "<class 'ovid.basic.Custom'>"
+    assert c.__bases__ == (OWProc,)
+
+
+def test_collective_dynamic():
+    CProc.registry.clear()
+    CProc.registry.append('dummy')
+    c = CProc.variant_class()
+    assert c.registry == []
+
+
+def test_delimited_caching():
+    def f():
+        return 'x'
+
+    c = Delimited.variant_class(name='Busybody',
+                                lead_in=re.escape('|'),
+                                lead_out=re.escape('|'),
+                                escape='´´')
+    c('g', f)
+    ret = c.collective_sub('´|g|a')
+    assert ret == '´xa'
+
+
+#################################
+# TESTS OF ARGUMENT PASSTHROUGH #
+#################################
+
+# The passing of arguments to a processor function via sub().
+
+def test_single():
+    deque = collections.deque()
+
+    def f(string, passthrough=None):
+        deque.append(string)
+        deque.append(passthrough)
+        return 'c'
+
+    processor = OWProc('(.+)', f)
+    ret = processor.sub('a', passthrough='b')
+
+    assert ret == 'c'
+    assert deque.popleft() == 'a'
+    assert deque.popleft() == 'b'
+    assert not deque
+
+    ret = processor.sub('d', passthrough=1)
+
+    assert ret == 'c'
+    assert deque.popleft() == 'd'
+    assert deque.popleft() == 1
+    assert not deque
+
+    ret = processor.sub('e')
+
+    assert ret == 'c'
+    assert deque.popleft() == 'e'
+    assert deque.popleft() is None
+    assert not deque
+
+
+def test_multiple():
+    deque = collections.deque()
+
+    def f(_, **kwargs):
+        deque.append(kwargs)
+        return '_'
+
+    processor = OWProc('(.+)', f)
+    ret = processor.sub('a', b0='b', b1='B')
+
+    assert ret == '_'
+    assert deque.popleft() == {'b0': 'b', 'b1': 'B'}
+    assert not deque
+
+    processor.sub('_', lst=['a'])
+
+    assert deque.popleft() == {'lst': ['a']}
+    assert not deque
+
+
+def test_basic_collective():
+    deque = collections.deque()
+
+    def f0(string, passthrough=None):
+        deque.append(string)
+        if passthrough is not None:
+            deque.append(passthrough)
+        return '¹'
+
+    def f1(string, passthrough=None):
+        f0(string, passthrough=passthrough)
+        return '²'
+
+    AutoProc.registry.clear()
+    AutoProc('(a)', f0)
+    AutoProc('(.+)', f1)
+
+    ret = AutoProc.collective_sub('b')
+
+    assert ret == '²'
+    assert deque.popleft() == 'b'
+    assert deque.popleft() == '²'
+    assert not deque
+
+    ret = AutoProc.collective_sub('a', passthrough=True)
+
+    assert ret == '²'
+    assert deque.popleft() == 'a'
+    assert deque.popleft() is True
+    assert deque.popleft() == '¹'
+    assert deque.popleft() is True
+    assert deque.popleft() == '²'
+    assert deque.popleft() is True
+    assert not deque
+
+    ret = AutoProc.collective_sub('A', passthrough=False)
+
+    assert ret == '²'
+    assert deque.popleft() == 'A'
+    assert deque.popleft() is False
+    assert deque.popleft() == '²'
+    assert deque.popleft() is False
+    assert not deque
+
+
+def test_delimited_collective():
+    deque = collections.deque()
+
+    class Processor(Delimited):
         pass
 
-    def setUp(self):
-        basic.CollectiveProcessor.registry.clear()
-        basic.OneWayProcessor._cache.clear()
-        basic.OneWayProcessor._cache.clear()
-        basic.DelimitedShorthand._cache.clear()
-        self.SubClass._cache.clear()
+    def f0(passthrough=None):
+        deque.append(passthrough)
+        return '¹'
 
-    def test_new_with_metaclassing(self):
-        self.assertNotEqual(id(basic.OneWayProcessor._cache),
-                            id(basic.DelimitedShorthand._cache))
-        self.assertIsNot(basic.OneWayProcessor._cache,
-                         basic.DelimitedShorthand._cache)
+    Processor.registry.clear()
+    Processor._cache.clear()
+    Processor('a', f0)
 
-    def test_new_with_subclassing(self):
-        self.assertNotEqual(id(basic.OneWayProcessor._cache),
-                            id(self.SubClass._cache))
-        self.assertIsNot(basic.OneWayProcessor._cache,
-                         self.SubClass._cache)
+    ret = Processor.collective_sub('{{a}}')
 
-    def test_shared_with_instantiation(self):
-        a, b = self.SubClass('a', None), self.SubClass('b', None)
+    assert ret == '¹'
+    assert deque.popleft() is None
+    assert not deque
 
-        self.assertEqual(id(a._cache), id(b._cache))
-        self.assertIs(a._cache, b._cache)
+    ret = Processor.collective_sub('{{a}}', passthrough='A')
 
-    def test_use(self):
-        def f():
-            return 'r'
-
-        self.assertFalse(self.SubClass._cache)
-        self.SubClass('p', f)
-        ret = self.SubClass.collective_sub('a{{p}}')
-        self.assertEqual(ret, 'ar')
-        self.assertTrue(self.SubClass._cache)
-
-
-class DynamicSubclassing(unittest.TestCase):
-    def test_oneway(self):
-        c = basic.OneWayProcessor.variant_class()
-        self.assertEqual(str(c), "<class 'ovid.basic.Custom'>")
-        self.assertEqual(c.__bases__, (basic.OneWayProcessor,))
-
-    def test_collective(self):
-        basic.CollectiveProcessor.registry.clear()
-        basic.CollectiveProcessor.registry.append('dummy')
-        c = basic.CollectiveProcessor.variant_class()
-        self.assertListEqual(c.registry, [])
-
-    def test_delimited_caching(self):
-        def f():
-            return 'x'
-
-        c = basic.DelimitedShorthand.variant_class(name='Busybody',
-                                                   lead_in=re.escape('|'),
-                                                   lead_out=re.escape('|'),
-                                                   escape='´´')
-        c('g', f)
-        ret = c.collective_sub('´|g|a')
-        self.assertEqual(ret, '´xa')
-
-
-class Passthrough(unittest.TestCase):
-    """The passing of arguments to a processor function via sub()."""
-
-    def test_single(self):
-        deque = collections.deque()
-
-        def f(string, passthrough=None):
-            deque.append(string)
-            deque.append(passthrough)
-            return 'c'
-
-        processor = basic.OneWayProcessor('(.+)', f)
-        ret = processor.sub('a', passthrough='b')
-
-        self.assertEqual(ret, 'c')
-        self.assertEqual(deque.popleft(), 'a')
-        self.assertEqual(deque.popleft(), 'b')
-        self.assertFalse(deque)
-
-        ret = processor.sub('d', passthrough=1)
-
-        self.assertEqual(ret, 'c')
-        self.assertEqual(deque.popleft(), 'd')
-        self.assertEqual(deque.popleft(), 1)
-        self.assertFalse(deque)
-
-        ret = processor.sub('e')
-
-        self.assertEqual(ret, 'c')
-        self.assertEqual(deque.popleft(), 'e')
-        self.assertEqual(deque.popleft(), None)
-        self.assertFalse(deque)
-
-    def test_multiple(self):
-        deque = collections.deque()
-
-        def f(_, **kwargs):
-            deque.append(kwargs)
-            return '_'
-
-        processor = basic.OneWayProcessor('(.+)', f)
-        ret = processor.sub('a', b0='b', b1='B')
-
-        self.assertEqual(ret, '_')
-        self.assertEqual(deque.popleft(), {'b0': 'b', 'b1': 'B'})
-        self.assertFalse(deque)
-
-        processor.sub('_', lst=['a'])
-
-        self.assertEqual(deque.popleft(), {'lst': ['a']})
-        self.assertFalse(deque)
-
-    def test_basic_collective(self):
-        deque = collections.deque()
-
-        def f0(string, passthrough=None):
-            deque.append(string)
-            if passthrough is not None:
-                deque.append(passthrough)
-            return '¹'
-
-        def f1(string, passthrough=None):
-            f0(string, passthrough=passthrough)
-            return '²'
-
-        basic.AutoRegisteringProcessor.registry.clear()
-        basic.AutoRegisteringProcessor('(a)', f0)
-        basic.AutoRegisteringProcessor('(.+)', f1)
-
-        ret = basic.AutoRegisteringProcessor.collective_sub('b')
-
-        self.assertEqual(ret, '²')
-        self.assertEqual(deque.popleft(), 'b')
-        self.assertEqual(deque.popleft(), '²')
-        self.assertFalse(deque)
-
-        ret = basic.AutoRegisteringProcessor.collective_sub('a',
-                                                            passthrough=True)
-
-        self.assertEqual(ret, '²')
-        self.assertEqual(deque.popleft(), 'a')
-        self.assertEqual(deque.popleft(), True)
-        self.assertEqual(deque.popleft(), '¹')
-        self.assertEqual(deque.popleft(), True)
-        self.assertEqual(deque.popleft(), '²')
-        self.assertEqual(deque.popleft(), True)
-        self.assertFalse(deque)
-
-        ret = basic.AutoRegisteringProcessor.collective_sub('A',
-                                                            passthrough=False)
-
-        self.assertEqual(ret, '²')
-        self.assertEqual(deque.popleft(), 'A')
-        self.assertEqual(deque.popleft(), False)
-        self.assertEqual(deque.popleft(), '²')
-        self.assertEqual(deque.popleft(), False)
-        self.assertFalse(deque)
-
-    def test_delimited_collective(self):
-        deque = collections.deque()
-
-        class Processor(basic.DelimitedShorthand):
-            pass
-
-        def f0(passthrough=None):
-            deque.append(passthrough)
-            return '¹'
-
-        Processor.registry.clear()
-        Processor._cache.clear()
-        Processor('a', f0)
-
-        ret = Processor.collective_sub('{{a}}')
-
-        self.assertEqual(ret, '¹')
-        self.assertEqual(deque.popleft(), None)
-        self.assertFalse(deque)
-
-        ret = Processor.collective_sub('{{a}}', passthrough='A')
-
-        self.assertEqual(ret, '¹')
-        self.assertEqual(deque.popleft(), 'A')
-        self.assertFalse(deque)
+    assert ret == '¹'
+    assert deque.popleft() == 'A'
+    assert not deque

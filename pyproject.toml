@@ -3,4 +3,6 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.flake8]
-extend-ignore = "D107,E203,"
+# When pflake8 or some equivalent supports per-file-ignores in this file,
+# disable D103 for unit tests and enable it for interfaces, per PEP 8.
+extend-ignore = "D103,D107,E203,"

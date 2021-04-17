@@ -1,7 +1,7 @@
 .PHONY = clean, wheel, test
 
 test:
-	python3 -m unittest discover
+	python3 -m pytest
 
 wheel: test
 	python3 -m build
