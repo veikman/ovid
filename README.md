@@ -12,15 +12,16 @@ the match.
 
 ### Examples
 
-Here is a trivial example from an interactive Python interpreter:
+Here is a trivial example:
 
-    >>> from ovid.basic import OneWayProcessor
-    >>>
-    >>> def f(group):
-    ...     return 3 * group
-    ...
-    >>> OneWayProcessor('(b)', f).sub('abc')
-    'abbbc'
+```python
+from ovid.basic import OneWayProcessor
+
+def f(group):
+    return 3 * group
+
+OneWayProcessor('(b)', f).sub('abc')  # Returns 'abbbc'
+```
 
 As you can see, the regex matches `b` and identifies it as a group, which
 Ovid passes to the function we have defined. The function does not
@@ -29,25 +30,27 @@ receive the match object.
 A slightly more meaningful example follows, using a different Ovid class,
 through a decorator.
 
-    >>> import random
-    >>> from ovid.inspecting import SignatureShorthand as SS1
-    >>>
-    >>> _BARK_STATES = ('mostly stripped', 'brown', 'gray')
-    >>>
-    >>> @SS1.register
-    ... def melee(to_hit, damage, defense=''):
-    ...     repl = f'{to_hit or "±0"} to hit with {damage or "±0"} damage.'
-    ...     if defense:
-    ...         repl += f' {defense} to be hit in melee.'
-    ...     return repl
-    ...
-    >>> @SS1.register
-    ... def wood():
-    ...     return f'The bark is {random.choice(_BARK_STATES)}.'
-    ...
-    >>> sample = 'A stick. {{wood}} {{melee||+1|defense=-1}}'
-    >>> SS1.collective_sub(sample)
-    'A stick. The bark is gray. ±0 to hit with +1 damage. -1 to be hit in melee.'
+```python
+import random
+from ovid.inspecting import SignatureShorthand as SS
+
+_BARK_STATES = ('mostly stripped', 'brown', 'gray')
+
+@SS.register
+def melee(to_hit, damage, defense=''):
+    repl = f'{to_hit or "±0"} to hit with {damage or "±0"} damage.'
+    if defense:
+        repl += f' {defense} to be hit in melee.'
+    return repl
+
+@SS.register
+def wood():
+    return f'The bark is {random.choice(_BARK_STATES)}.'
+
+sample = 'A stick. {{wood}} {{melee||+1|defense=-1}}'
+SS.collective_sub(sample)  # Return value:
+# 'A stick. The bark is gray. ±0 to hit with +1 damage. -1 to be hit in melee.'
+```
 
 Here, the decorator adds our two functions to a registry, and the Ovid class
 constructs our regular expressions for us, with delimiters and separators that
@@ -57,16 +60,20 @@ the passing of additional contextual information to processors.
 
 Finally, Ovid processors can evert, outputting suitable input.
 
-    >>> from ovid.producing import TwoWaySignatureShorthand as SS2
-    >>>
-    >>> def hyperlink(href, text=None):
-    ...    return f'<a href="{href}">{text or href}</a>'
-    ...
-    >>> SS2(hyperlink).produce('https://www.fsf.org/', text='FSF')
-    '{{hyperlink|https://www.fsf.org/|text=FSF}}'
-    >>>
-    >>> SS2(hyperlink).sub('{{hyperlink|https://www.python.org/psf/|text=PSF}}')
-    '<a href="https://www.python.org/psf/">PSF</a>'
+```python
+from ovid.producing import TwoWaySignatureShorthand
+
+def hyperlink(href, text=None):
+   return f'<a href="{href}">{text or href}</a>'
+
+processor = TwoWaySignatureShorthand(hyperlink)
+
+processor.produce('https://www.fsf.org/', text='FSF')
+# Return value: '{{hyperlink|https://www.fsf.org/|text=FSF}}'
+
+processor.sub('{{hyperlink|https://www.python.org/psf/|text=PSF}}')
+# Return value: '<a href="https://www.python.org/psf/">PSF</a>'
+```
 
 In this example, an object built from one function can produce a template,
 and parse such a template as in the first example.
@@ -75,8 +82,7 @@ and parse such a template as in the first example.
 
 Ovid grew out of [CBG](https://github.com/veikman/cbg). There, Ovid enables
 shorthand expressions in the manual text input that CBG uses to make
-playing cards. Because advanced Ovid processors can “evert” and produce
-the expressions they themselves would consume, Ovid also combines with CBG
+playing cards. Because Ovid processors can evert, Ovid also combines with CBG
 to generate elegant raw text specifications for larger games.
 
 A more complicated real-world use case is the maintenance of the author’s
