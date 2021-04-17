@@ -5,10 +5,9 @@ version 0.5.0.
 
 ## [Unreleased]
 ### Changed
-- Switched from `distutils.core` to `setuptools` (via PyPA `build`) to enable
-  wheel distribution.
+- Modernized use of `setuptools` (via PyPA `build`) for PyPI publication.
     - Removed Debian system packaging shortcuts.
-- Changed distribution name from `Ovid` to `ovid`.
+- Converted unit tests to `pytest`.
 
 ### Added
 - Flake8 configuration via `pyproject.toml`, hence via `pflake8`.
@@ -16,4 +15,10 @@ version 0.5.0.
 ### Fixed
 - Linting.
 
-[Unreleased]: https://github.com/veikman/ovid/compare/ovid-v0.5.0...HEAD
+## [0.5.1] - 2020-10-24
+### Changed
+- Switched from `distutils.core` to `setuptools` to enable wheel distribution.
+- Changed distribution name from `Ovid` to `ovid`.
+
+[Unreleased]: https://github.com/veikman/ovid/compare/ovid-v0.5.1...HEAD
+[0.5.1]: https://github.com/veikman/ovid/compare/ovid-v0.5.0...v0.5.1
