@@ -7,6 +7,7 @@ version 0.5.0.
 ### Changed
 - Switched from `distutils.core` to `setuptools` (via PyPA `build`) to enable
   wheel distribution.
+    - Removed Debian system packaging shortcuts.
 - Changed distribution name from `Ovid` to `ovid`.
 
 ### Added
