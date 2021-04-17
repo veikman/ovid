@@ -1,0 +1,2 @@
+[tool.flake8]
+extend-ignore = "D107,E203,"
