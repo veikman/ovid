@@ -1,7 +1,7 @@
 ## Ovid: tools for text metamorphosis
 
 This Python package is a templating engine. It will remind you of other such
-engines available for Python, such as the standard library’s string.Template,
+engines available for Python, such as the standard library’s `string.Template`,
 Jinja, and the Django template system.
 
 Ovid works by pairing up regular expressions with functions. Both are
@@ -23,9 +23,9 @@ def f(group):
 OneWayProcessor('(b)', f).sub('abc')  # Returns 'abbbc'
 ```
 
-As you can see, the regex matches `b` and identifies it as a group, which
-Ovid passes to the function we have defined. The function does not
-receive the match object.
+The regex `(b)` matches the letter `b` and identifies it as a group. As you can
+see, Ovid passes that group to the function we have defined. The function does
+not receive the match object.
 
 A slightly more meaningful example follows, using a different Ovid class,
 through a decorator.
@@ -56,7 +56,8 @@ Here, the decorator adds our two functions to a registry, and the Ovid class
 constructs our regular expressions for us, with delimiters and separators that
 can be customized through subclassing. We apply both processors collectively,
 through a class method. Collective application supports recursion, nesting, and
-the passing of additional contextual information to processors.
+the passing of additional contextual information to processors. Here, Ovid
+comes to resemble a parser for a domain-specific language (DSL).
 
 Finally, Ovid processors can evert, outputting suitable input.
 
@@ -75,8 +76,8 @@ processor.sub('{{hyperlink|https://www.python.org/psf/|text=PSF}}')
 # Return value: '<a href="https://www.python.org/psf/">PSF</a>'
 ```
 
-In this example, an object built from one function can produce a template,
-and parse such a template as in the first example.
+In this example, an object built from one function can both produce a template
+and parse such a template.
 
 ### Use cases
 
